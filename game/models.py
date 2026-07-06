@@ -58,14 +58,16 @@ class Game(models.Model):
         return False, "Player is inactive"
     return True, "Can join"
   
-  def can_start(self):
-     pass
-  
-  def start_game(self):
-    can_start, errors = self.can_start()
-    if not can_start:
-        raise ValidationError("\n".join(errors))
+  def can_start(self, player):
+    if self.state != self.GameState.WAITING:
+        return False, "Game already started or finished"
     
+    if not player.is_active:
+       return False, "Player not active"
+    
+    return True, "Can start"
+  
+  def start_game(self):    
     self.state = self.GameState.PLAYING
     self.current_player_index = 0
     self.turn_number = 0
@@ -98,4 +100,42 @@ class Game(models.Model):
 
     return self.get_current_player()
 
-     
+
+class ColorGroup(models.Model):
+   name = models.CharField(max_length=50)
+   color_code = models.CharField(max_length=7, help_text="Hex color code")
+
+class Square(models.Model):
+  class SquareType(models.TextChoices):
+    GO = 'GO', 'Go'
+    PROPERTY = 'PR', 'Property'
+    JAIL = 'JA', 'Jail'
+    FREE_PARKING = 'FP', 'Free Parking'
+    GO_TO_JAIL = 'GJ', 'Go to Jail'
+    CHANCE = 'CH', 'Chance'
+    COMMUNITY_CHEST = 'CC', 'Community Chest'
+    TAX = 'TA', 'Tax'
+    RAILROAD = 'RR', 'Railroad'
+    UTILITY = 'UT', 'Utility'
+  
+  position = models.IntegerField(unique=True, validators=[MinValueValidator(0), MaxValueValidator(39)])
+  name = models.CharField(max_length=100)
+  square_type = models.CharField(max_length=2, choices=SquareType.choices)
+  color_group = models.ForeignKey(ColorGroup, on_delete=models.SET_NULL, null=True, blank=True)
+  price = models.IntegerField(null=True, blank=True)
+  rent = models.IntegerField(null=True, blank=True)
+  tax_amount = models.IntegerField(null=True, blank=True)
+
+  def __str__(self):
+     return f"{self.position}: {self.name}"
+
+class Property(models.Model):
+   square = models.OneToOneField(Square, on_delete = models.SET_NULL, related_name='property', null=True)
+   owner = models.ForeignKey('Player', on_delete=models.SET_NULL, null=True, blank=True, related_name='properties')
+   # TODO: Hotels?
+   houses = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(5)])
+   is_mortgaged = models.BooleanField(default=False)
+   game = models.ForeignKey('Game', on_delete=models.SET_NULL, related_name='properties', null=True)
+
+   def __str__(self):
+      return f"{self.square.name} - {self.owner.user.username if self.owner else 'Unowned'}"

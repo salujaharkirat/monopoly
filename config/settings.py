@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     'game',
 ]
 
-ASGI_APPLICATION = 'monopoly.asgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3001",  # React development server
     "http://127.0.0.1:3001",

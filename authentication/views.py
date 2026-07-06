@@ -1,39 +1,96 @@
-from django.shortcuts import render
-
+from rest_framework.views import APIView
 from django.contrib.auth import authenticate
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-
+from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
-from rest_framework.status import HTTP_201_CREATED, HTTP_200_OK, HTTP_401_UNAUTHORIZED
-from .serializer import RegisterSerializer, LoginSerializer
+from rest_framework.authentication import TokenAuthentication
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register_user(request):
-  serializer = RegisterSerializer(data = request.data)
-  if serializer.is_valid(raise_exception=True):
-    user = serializer.save() 
-    token, created = Token.objects.get_or_create(user=user)
-    # 3. Return the token to the frontend
-    return Response({
-        "token": token.key,
-        "username": user.username,
-        "message": "User registered successfully!"
-    }, status=HTTP_201_CREATED)
+from .serializer import RegisterSerializer
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def login_user(request):
-  serializer = LoginSerializer(data = request.data)
-  if serializer.is_valid(raise_exception=True):
-    print(serializer.validated_data)
-    user = authenticate(username=serializer.validated_data['username'], password=serializer.validated_data['password'])
-    print("user", user)
-    if user:
+class LoginView(APIView):
+    """Login and get token"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+      username = request.data.get('username')
+      password = request.data.get('password')
+      
+      if not username or not password:
+        return Response(
+            {'detail': 'Username and password are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+      user = authenticate(username=username, password=password)
+      
+      if not user:
+        return Response(
+            {'detail': 'Invalid credentials'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+      
+      # Get or create token
       token, created = Token.objects.get_or_create(user=user)
+      
+
       return Response({
-        "token": token.key
-      }, status = HTTP_200_OK)
-    return Response({"message": "cannot login"}, status=HTTP_401_UNAUTHORIZED)
+        'token': token.key,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+        }
+      })
+
+class RegisterView(APIView):
+    """Register new user and get token"""
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+          user = serializer.save()
+    
+          # Create token
+          token = Token.objects.create(user=user)
+          
+          return Response({
+              'token': token.key,
+              'user': {
+                  'id': user.id,
+                  'username': user.username,
+                  'email': user.email,
+              }
+          }, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class LogoutView(APIView):
+    """Logout - delete token"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+      # Delete the user's token
+      try:
+          request.user.auth_token.delete()
+      except:
+          pass
+      
+      return Response(
+          {'detail': 'Successfully logged out'},
+          status=status.HTTP_200_OK
+      )
+
+class GetCurrentUserView(APIView):
+    """Get current user info"""
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+      user = request.user
+      
+      return Response({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+      })

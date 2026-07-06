@@ -1,13 +1,16 @@
 from django.urls import path
-
-from .views import CreateGameView, JoinGameView, StartGameView, GameStatusView
+from . import views
 
 app_name = 'game'
 
 urlpatterns = [
-    # Create game - uses CreateGameSerializer
-    path('create/', CreateGameView.as_view(), name='create-game'),
-    path('<int:game_id>/join/', JoinGameView.as_view(), name='join-game'),
-    path('<int:game_id>/start/', StartGameView.as_view(), name='start-game'),
-    path('<int:game_id>/status/', GameStatusView.as_view(), name='game-status'),
+    # Authentication
+    
+    # Game API Endpoints
+    path('', views.GameListView.as_view(), name='game-list'),
+    path('create/', views.CreateGameView.as_view(), name='create-game'),
+    path('<int:game_id>/', views.GameDetailView.as_view(), name='game-detail'),
+    path('<int:game_id>/join/', views.JoinGameView.as_view(), name='join-game'),
+    path('<int:game_id>/start/', views.StartGameView.as_view(), name='start-game'),
+    path('<int:game_id>/status/', views.GameStatusView.as_view(), name='game-status'),
 ]

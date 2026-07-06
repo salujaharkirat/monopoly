@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 
 from .models import Game, Player
 
-logger = logging(__name__)
+logger = logging.getLogger(__name__)
 
 class GameService:
   @staticmethod
@@ -56,7 +56,7 @@ class GameService:
         'name': game.name,
         'state': game.state,
         'current_player_index': game.current_player_index,
-        'number_of_turns': game.number_of_turns,
+        'turn_number': game.turn_number,
         'players': [
             {
               'id': player.id,

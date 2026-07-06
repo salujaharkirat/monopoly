@@ -68,7 +68,7 @@ class Game(models.Model):
     
     self.state = self.GameState.PLAYING
     self.current_player_index = 0
-    self.number_of_turns = 0
+    self.turn_number = 0
 
     for player in self.players.all():
         player.money = 2000
@@ -93,7 +93,7 @@ class Game(models.Model):
 
     player_count = self.players.count()
     self.current_player_index = (self.current_player_index + 1) % player_count
-    self.number_of_turns += 1
+    self.turn_number += 1
     self.save()
 
     return self.get_current_player()

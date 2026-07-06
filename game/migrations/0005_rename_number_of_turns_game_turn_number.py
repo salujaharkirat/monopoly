@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RenameField(
             model_name='game',
-            old_name='number_of_turns',
+            old_name='turn_number',
             new_name='turn_number',
         ),
     ]

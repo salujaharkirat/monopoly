@@ -28,7 +28,7 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(default='Monopoly Game', max_length=100)),
                 ('state', models.CharField(choices=[('N', 'NOT STARTED'), ('P', 'PLAYING'), ('F', 'FINISHED')], default='N', max_length=1)),
                 ('current_player_index', models.IntegerField(default=0)),
-                ('number_of_turns', models.IntegerField(default=0)),
+                ('turn_number', models.IntegerField(default=0)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('players', models.ManyToManyField(related_name='games', to='game.player', verbose_name='list of players')),

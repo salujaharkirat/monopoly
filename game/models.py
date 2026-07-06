@@ -7,6 +7,12 @@ class Player(models.Model):
       on_delete=models.PROTECT,
       related_name='monopoly_player'
   )
+  money = models.IntegerField(default=2000)
+  position = models.IntegerField(default=0)
+  is_in_jail = models.BooleanField(default=False)
+  is_active = models.BooleanField(default=True)
+  created_at = models.DateTimeField(auto_now_add=True)
+  updated_at = models.DateTimeField(auto_now=True)
 
 class Game(models.Model):
   GAME_STATE_CHOICES = [

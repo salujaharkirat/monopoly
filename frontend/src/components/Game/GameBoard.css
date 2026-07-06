@@ -1,0 +1,141 @@
+.game-board {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.game-header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.game-status {
+  display: flex;
+  gap: 20px;
+  color: #666;
+}
+
+.game-status span {
+  background: #f5f5f5;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.leave-btn {
+  padding: 8px 16px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.leave-btn:hover {
+  background: #c82333;
+}
+
+.notifications {
+  margin-bottom: 20px;
+}
+
+.notification {
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  animation: slideIn 0.3s ease;
+}
+
+.notification.success {
+  background: #d4edda;
+  color: #155724;
+  border-left: 4px solid #28a745;
+}
+
+.notification.error {
+  background: #f8d7da;
+  color: #721c24;
+  border-left: 4px solid #dc3545;
+}
+
+.notification.info {
+  background: #d1ecf1;
+  color: #0c5460;
+  border-left: 4px solid #17a2b8;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.game-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+.game-board-display {
+  background: white;
+  border-radius: 8px;
+  padding: 40px;
+  min-height: 500px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.board-placeholder {
+  text-align: center;
+  padding: 80px 20px;
+  color: #999;
+  font-size: 18px;
+}
+
+.board-placeholder p {
+  margin-top: 20px;
+  font-size: 14px;
+}
+
+.game-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.error-container {
+  text-align: center;
+  padding: 40px;
+  color: #dc3545;
+}
+
+@media (max-width: 768px) {
+  .game-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .game-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .game-status {
+    flex-wrap: wrap;
+  }
+}

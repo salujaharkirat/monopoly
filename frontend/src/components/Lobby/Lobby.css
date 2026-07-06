@@ -1,0 +1,56 @@
+.lobby {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.lobby h1 {
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.lobby > p {
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.lobby-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 30px;
+}
+
+.games-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.games-section h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.create-section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  height: fit-content;
+}
+
+.error-message {
+  background: #fee;
+  color: #c33;
+  padding: 10px 15px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  border-left: 4px solid #c33;
+}
+
+@media (max-width: 768px) {
+  .lobby-content {
+    grid-template-columns: 1fr;
+  }
+}

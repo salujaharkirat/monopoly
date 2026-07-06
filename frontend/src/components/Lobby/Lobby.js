@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { gameAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import CreateGameForm from './CreateGameForm';
-import GameList from './GameList';
+import GameList from '../Game/GameList';
 import Loading from '../Common/Loading';
 import './Lobby.css';
 

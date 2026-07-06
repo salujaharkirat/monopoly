@@ -1,0 +1,44 @@
+.player-list {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.player-list h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.player-card {
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  background: #f8f9fa;
+  border-left: 3px solid transparent;
+  transition: all 0.3s;
+}
+
+.player-card.current-player {
+  background: #e8f5e9;
+  border-left-color: #4caf50;
+}
+
+.player-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.turn-indicator {
+  font-size: 18px;
+}
+
+.player-stats {
+  display: flex;
+  gap: 15px;
+  font-size: 14px;
+  color: #666;
+}

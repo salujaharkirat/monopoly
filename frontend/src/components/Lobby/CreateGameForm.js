@@ -1,4 +1,3 @@
-// frontend/src/components/Lobby/CreateGameForm.js
 import React, { useState } from 'react';
 import { gameAPI } from '../../services/api';
 import './CreateGameForm.css';

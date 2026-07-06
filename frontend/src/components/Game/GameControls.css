@@ -1,0 +1,77 @@
+.game-controls {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.game-controls h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.game-controls button {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.game-controls button:last-child {
+  margin-bottom: 0;
+}
+
+.game-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-start {
+  background: #4caf50;
+  color: white;
+}
+
+.btn-start:hover:not(:disabled) {
+  background: #388e3c;
+}
+
+.btn-roll {
+  background: #2196f3;
+  color: white;
+}
+
+.btn-roll:hover:not(:disabled) {
+  background: #1976d2;
+}
+
+.btn-buy {
+  background: #ff9800;
+  color: white;
+}
+
+.btn-buy:hover:not(:disabled) {
+  background: #f57c00;
+}
+
+.btn-end {
+  background: #9c27b0;
+  color: white;
+}
+
+.btn-end:hover:not(:disabled) {
+  background: #7b1fa2;
+}
+
+.waiting-message {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-size: 16px;
+}

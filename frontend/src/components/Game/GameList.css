@@ -1,0 +1,67 @@
+.game-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.game-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.2s;
+}
+
+.game-item:hover {
+  transform: translateY(-2px);
+}
+
+.game-info h3 {
+  margin: 0 0 5px 0;
+  color: #333;
+}
+
+.game-info p {
+  margin: 3px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.join-btn {
+  padding: 8px 20px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s;
+}
+
+.join-btn:hover:not(:disabled) {
+  background: #5a67d8;
+}
+
+.join-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.game-list-empty {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.refresh-btn {
+  margin-top: 10px;
+  padding: 8px 20px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}

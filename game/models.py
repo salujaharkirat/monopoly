@@ -16,11 +16,12 @@ class Player(models.Model):
   updated_at = models.DateTimeField(auto_now=True)
 
 class Game(models.Model):
-  GAME_STATE_CHOICES = [
-      ("N", "NOT STARTED"),
-      ("P", "PLAYING"),
-      ("F", "FINISHED"),
-  ]
+  class GameState(models.TextChoices):
+    WAITING = 'WT', 'Waiting for Players'
+    PLAYING = 'PL', 'Playing'
+    FINISHED = 'FI', 'Finished'
+    CANCELLED = 'CA', 'Cancelled'
+
   name = models.CharField(max_length=100, default="Monopoly Game")
   players = models.ManyToManyField(
     Player,
@@ -35,8 +36,23 @@ class Game(models.Model):
       default=2,
       validators=[MinValueValidator(2), MaxValueValidator(4)]
   )
-  state = models.CharField(max_length=1, choices=GAME_STATE_CHOICES, default="N")
+  state = models.CharField(max_length=2, choices=GameState.choices,
+        default=GameState.WAITING)
   current_player_index = models.IntegerField(default=0)
-  number_of_turns = models.IntegerField(default=0)
+  turn_number = models.IntegerField(default=0)
   created_at = models.DateTimeField(auto_now_add=True)
   updated_at = models.DateTimeField(auto_now=True)
+  created_by = models.ForeignKey(Player,  on_delete=models.PROTECT, related_name='created_games',         null=True,  # Allow null temporarily
+        blank=True)  # Allow blank in forms)
+
+  def can_join(self, player):
+    """Check if a player can join this game"""
+    if self.state != self.GameState.WAITING:
+        return False, "Game already started or finished"
+    if self.players.count() >= self.max_players:
+        return False, "Game is full"
+    if self.players.filter(id=player.id).exists():
+        return False, "Already in this game"
+    if not player.is_active:
+        return False, "Player is inactive"
+    return True, "Can join"

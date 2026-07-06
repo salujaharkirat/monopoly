@@ -7,6 +7,8 @@ from rest_framework.authentication import TokenAuthentication
 
 from .serializer import RegisterSerializer
 
+from game.models import Player
+
 class LoginView(APIView):
     """Login and get token"""
     permission_classes = [permissions.AllowAny]
@@ -22,7 +24,7 @@ class LoginView(APIView):
         )
     
       user = authenticate(username=username, password=password)
-      
+        
       if not user:
         return Response(
             {'detail': 'Invalid credentials'},
@@ -31,7 +33,16 @@ class LoginView(APIView):
       
       # Get or create token
       token, created = Token.objects.get_or_create(user=user)
-      
+
+      Player.objects.get_or_create(
+        user=user,
+        defaults={
+            'money': 2000,
+            'position': 0,
+            'is_in_jail': False,
+            'is_active': True
+        }
+      )      
 
       return Response({
         'token': token.key,

@@ -1,12 +1,14 @@
 # game/consumers.py
 import json
 import logging
+
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 from .models import Game, Player
-from .serializers import GameDetailSerializer
+from .serializer import GameDetailSerializer
+from .service import GameService
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +16,7 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.game_id = self.scope['url_route']['kwargs']['game_id']
         self.room_group_name = f'game_{self.game_id}'
+
         
         # Get token from query string
         query_string = self.scope['query_string'].decode()
@@ -21,6 +24,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         if 'token=' in query_string:
             token_key = query_string.split('token=')[1].split('&')[0]
         
+
         if not token_key:
             logger.error("No token provided")
             await self.close(code=4001)
@@ -29,16 +33,17 @@ class GameConsumer(AsyncWebsocketConsumer):
         # Authenticate user with token
         try:
             token = await self.get_token(token_key)
+            user = await self.get_user_from_token(token_key)
             if not token:
                 await self.close(code=4001)
                 return
             
-            self.user = token.user
+            self.user = user
             
             # Check if user is in the game
             player = await self.get_player(self.user)
             game = await self.get_game(self.game_id)
-            
+
             if not await self.is_player_in_game(player, game):
                 await self.close(code=4003)
                 return
@@ -59,15 +64,12 @@ class GameConsumer(AsyncWebsocketConsumer):
         # Send current game state
         await self.send_game_state()
         
-        # Notify others
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'player_joined',
-                'username': self.user.username,
-                'message': f"{self.user.username} joined the game"
-            }
-        )
+        # # Broadcast player joined
+        # await self.broadcast_game_state({
+        #     'type': 'player_joined',
+        #     'username': self.user.username,
+        #     'message': f"{self.user.username} joined the game"
+        # })
     
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
@@ -79,7 +81,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         try:
             data = json.loads(text_data)
             action = data.get('action')
-            
+
             if action == 'start_game':
                 await self.handle_start_game()
             elif action == 'roll_dice':
@@ -88,6 +90,8 @@ class GameConsumer(AsyncWebsocketConsumer):
                 await self.handle_buy_property(data)
             elif action == 'end_turn':
                 await self.handle_end_turn()
+            elif action == 'get_state':
+                await self.send_game_state()
             else:
                 await self.send_error(f"Unknown action: {action}")
                 
@@ -97,21 +101,104 @@ class GameConsumer(AsyncWebsocketConsumer):
             logger.error(f"Error handling message: {e}")
             await self.send_error(str(e))
     
+    # ====== ACTION HANDLERS
+
     async def handle_start_game(self):
-        # Implementation...
-        pass
+        try:
+            player = await self.get_player(self.user)
+            game = await self.get_game(self.game_id)
+
+            if not player:
+                await self.send_error("Player not found")
+                return
+            
+            if not game:
+                await self.send_error("Game not found")
+                return
+            
+
+            if game.created_by != player:
+                await self.send_error("Only creater can start the game")
+                return
+            
+            can_start, errors = await self.can_start_game(game, player)
+            if not can_start:
+                await self.send_error("".join(errors))
+                return
+            
+            await self.start_game(game)
+
+            game_state = await self.get_game_state()
+            
+            await self.broadcast_game_state(game_state)
+            
+        except Exception as e:
+            await self.send_error(str(e))
     
     async def handle_roll_dice(self, data):
-        # Implementation...
-        pass
+        try:
+            player = await self.get_player(self.user)
+            game = await self.get_game(self.game_id)
+
+            if not player or not game:
+                await self.send_error("Player or game not found")
+                return
+
+            result = await self.roll_dice_async(game.id, player.id)
+
+
+            if not result['success']:
+                await self.send_error(result['message'])
+                return
+            
+            # Broadcast dice result
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'dice_rolled',
+                    'data': result['data']
+                }
+            )
+
+        except Exception as e:
+            await self.send_error(str(e))
     
     async def handle_buy_property(self, data):
-        # Implementation...
         pass
     
     async def handle_end_turn(self):
-        # Implementation...
         pass
+
+    @database_sync_to_async
+    def roll_dice_async(self, game_id, player_id):
+        return GameService.roll_dice(game_id, player_id)
+
+    @database_sync_to_async
+    def get_user_from_token(self, key):
+        """Get user from token - handles all cases"""
+        print(f"🔍 Getting user from token: {key[:20]}...")
+        try:
+            # ✅ Use select_related to load user in the same query
+            token = Token.objects.select_related('user').get(key=key)
+            
+            # ✅ Safely get user
+            user = getattr(token, 'user', None)
+            
+            if not user:
+                print("❌ Token has no user")
+                return None
+                
+            print(f"✅ Found user: {user.username}")
+            return user
+            
+        except Token.DoesNotExist:
+            print(f"❌ Token not found: {key[:20]}...")
+            return None
+        except Exception as e:
+            print(f"❌ Error getting user: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
     
     @database_sync_to_async
     def get_token(self, key):
@@ -123,10 +210,26 @@ class GameConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_player(self, user):
         return Player.objects.get(user=user)
-    
+        
     @database_sync_to_async
     def get_game(self, game_id):
-        return Game.objects.get(id=game_id)
+        """Get game with related fields prefetched"""
+        try:
+            # ✅ Use select_related to prefetch created_by and its user
+            game = Game.objects.select_related('created_by', 'created_by__user').get(id=game_id)
+            return game
+        except Game.DoesNotExist:
+            return None
+
+    @database_sync_to_async
+    def can_start_game(self, game, player):
+        return game.can_start(player)
+
+    @database_sync_to_async
+    def start_game(self, game):
+        game.start_game()
+        game.save()
+        return game
     
     @database_sync_to_async
     def is_player_in_game(self, player, game):
@@ -174,5 +277,34 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def game_update(self, event):
         await self.send(text_data=json.dumps({
             'type': 'game_update',
+            'data': event['data']
+        }))
+
+    async def broadcast_game_state(self, game_state):
+        """Broadcast game state to all players in the room"""
+        print(f"📡 Broadcasting game state to {self.room_group_name}")
+        
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'game_state_broadcast',
+                'data': game_state
+            }
+        )
+        print("✅ Game state broadcast sent!")
+
+    async def game_state_broadcast(self, event):
+        """Handle game state broadcast from group"""
+        print(f"📨 Received game_state_broadcast")
+        await self.send(text_data=json.dumps({
+            'type': 'game_state',
+            'data': event['data']
+        }))
+        
+    async def dice_rolled(self, event):
+        """Handle dice rolled broadcast"""
+        print(f"📨 Dice rolled event received")
+        await self.send(text_data=json.dumps({
+            'type': 'dice_rolled',
             'data': event['data']
         }))

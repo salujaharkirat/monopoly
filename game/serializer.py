@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
-from .models import Game, Player
+from .models import Game, Player, Square
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
@@ -82,3 +82,34 @@ class CreateGameSerializer(serializers.ModelSerializer):
     class Meta:
         model = Game
         fields = ['name', 'max_players', 'min_players']
+
+class SquareSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Square
+        fields = '__all__'
+
+class GameDetailSerializer(serializers.ModelSerializer):
+    players = PlayerSerializer(many=True, read_only=True)
+    player_count = serializers.IntegerField(source='players.count', read_only=True)
+    created_by_username = serializers.CharField(source='created_by.user.username', read_only=True)
+    current_player = serializers.SerializerMethodField()
+    squares = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Game
+        fields = [
+            'id', 'name', 'state', 'max_players', 'min_players',
+            'players', 'player_count', 'current_player_index',
+            'turn_number', 'created_by', 'created_by_username',
+            'created_at', 'updated_at', 'current_player', 'squares'
+        ]
+    
+    def get_current_player(self, obj):
+        current = obj.get_current_player()
+        if current:
+            return PlayerSerializer(current).data
+        return None
+    
+    def get_squares(self, obj):
+        squares = Square.objects.all().order_by('position')
+        return SquareSerializer(squares, many=True).data

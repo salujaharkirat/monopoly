@@ -1,49 +1,93 @@
+// frontend/src/components/Game/GameControls.js
 import React from 'react';
 import './GameControls.css';
 
 const GameControls = ({ 
+  game,
   isCreator, 
   isMyTurn, 
   isWaiting, 
   isPlaying, 
+  isRolling,
   onStartGame, 
   onRollDice, 
   onEndTurn, 
-  onBuyProperty 
+  onBuyProperty,
+  onViewProperties
 }) => {
+  const isDisabled = isRolling || !isPlaying;
+
   return (
     <div className="game-controls">
-      <h3>Controls</h3>
+      <h3>🎮 Controls</h3>
       
       {isWaiting && isCreator && (
         <button className="btn-start" onClick={onStartGame}>
-          🎮 Start Game
+          🚀 Start Game
         </button>
       )}
       
-      {isPlaying && isMyTurn && (
-        <>
-          <button className="btn-roll" onClick={onRollDice}>
-            🎲 Roll Dice
+      {isPlaying && (
+        <div className="controls-group">
+          <button 
+            className="btn-roll" 
+            onClick={onRollDice}
+            disabled={!isMyTurn || isRolling}
+          >
+            {isRolling ? '🎲 Rolling...' : '🎲 Roll Dice'}
           </button>
-          <button className="btn-buy" onClick={onBuyProperty}>
+          
+          <button 
+            className="btn-buy" 
+            onClick={onBuyProperty}
+            disabled={!isMyTurn || isDisabled}
+          >
             🏠 Buy Property
           </button>
-          <button className="btn-end" onClick={onEndTurn}>
+          
+          <button 
+            className="btn-end" 
+            onClick={onEndTurn}
+            disabled={!isMyTurn || isDisabled}
+          >
             ⏭️ End Turn
           </button>
-        </>
+          
+          <button 
+            className="btn-properties" 
+            onClick={onViewProperties}
+            disabled={isDisabled}
+          >
+            📋 My Properties
+          </button>
+        </div>
       )}
       
-      {isPlaying && !isMyTurn && (
+      {isPlaying && !isMyTurn && !isRolling && (
         <div className="waiting-message">
-          ⏳ Waiting for {isCreator ? 'creator' : 'other player'}...
+          <span className="waiting-icon">⏳</span>
+          <span>Waiting for {game?.current_player?.username || 'opponent'}...</span>
+        </div>
+      )}
+      
+      {isPlaying && isMyTurn && isRolling && (
+        <div className="rolling-message">
+          <span className="rolling-icon">🎲</span>
+          <span>Rolling dice...</span>
         </div>
       )}
       
       {isWaiting && !isCreator && (
         <div className="waiting-message">
-          ⏳ Waiting for creator to start the game...
+          <span className="waiting-icon">⏳</span>
+          <span>Waiting for creator to start the game...</span>
+        </div>
+      )}
+      
+      {isPlaying && game?.state === 'PL' && (
+        <div className="turn-info">
+          <span className="turn-label">Turn:</span>
+          <span className="turn-number">{game?.number_of_turns || 0}</span>
         </div>
       )}
     </div>

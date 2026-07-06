@@ -1,7 +1,7 @@
 import React from 'react';
 import './GameList.css';
 
-const GameList = ({ games, onJoinGame, onRefresh }) => {
+const GameList = ({ games, onStartGame, onJoinGame, onRefresh }) => {
   if (!games || games.length === 0) {
     return (
       <div className="game-list-empty">
@@ -29,6 +29,12 @@ const GameList = ({ games, onJoinGame, onRefresh }) => {
             disabled={game.player_count >= game.max_players}
           >
             {game.player_count >= game.max_players ? 'Full' : 'Join Game'}
+          </button>
+          <button 
+            onClick={() => onStartGame(game.id)}
+            className="join-btn"
+          >
+            Start Game
           </button>
         </div>
       ))}

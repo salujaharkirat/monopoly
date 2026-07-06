@@ -1,0 +1,167 @@
+/* frontend/src/components/Game/Dice.css */
+.dice-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  margin-top: 20px;
+  min-height: 150px;
+  justify-content: center;
+}
+
+.dice-placeholder {
+  text-align: center;
+  color: #999;
+}
+
+.dice-icon {
+  font-size: 60px;
+  display: block;
+  margin-bottom: 10px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.dice-hint {
+  font-size: 14px;
+  color: #aaa;
+  margin: 0;
+}
+
+.dice-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.dice-pair {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.dice-face {
+  width: 80px;
+  height: 80px;
+  background: white;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: all 0.3s;
+  border: 2px solid #e0e0e0;
+}
+
+.dice-face span {
+  display: block;
+  line-height: 1;
+}
+
+.dice-plus {
+  font-size: 24px;
+  font-weight: bold;
+  color: #666;
+}
+
+.dice-wrapper.rolling .dice-face {
+  border-color: #667eea;
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+}
+
+.dice-face.rolling-dice {
+  animation: diceRoll 0.1s ease-in-out infinite;
+}
+
+@keyframes diceRoll {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(10deg) scale(1.05); }
+  75% { transform: rotate(-10deg) scale(1.05); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+.dice-result {
+  margin-top: 15px;
+  text-align: center;
+  width: 100%;
+}
+
+.dice-total {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.total-label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.total-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: #2c3e50;
+  background: #f0f0f0;
+  padding: 0 15px;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.doubles-badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 16px;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: bold;
+  animation: bounce 0.5s ease-in-out;
+}
+
+.passed-go {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 16px;
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: bold;
+  animation: slideIn 0.5s ease-in-out;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+@keyframes slideIn {
+  0% { transform: translateY(-20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dice-face {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .dice-face span {
+    font-size: 40px !important;
+  }
+  
+  .total-value {
+    font-size: 24px;
+  }
+}

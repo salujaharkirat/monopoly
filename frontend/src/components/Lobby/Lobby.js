@@ -43,6 +43,16 @@ const Lobby = () => {
     }
   };
 
+  const handleStartGame = async (gameId) => {
+    try {
+      await gameAPI.start(gameId);
+      navigate(`/game/${gameId}`);
+    } catch (error) {
+      console.error('Error starting game', error);
+      alert(error.response?.data?.detail || 'Failed to start game')
+    }
+  }
+
   const handleGameCreated = (game) => {
     navigate(`/game/${game.id}`);
   };
@@ -64,6 +74,7 @@ const Lobby = () => {
           <GameList 
             games={games} 
             onJoinGame={handleJoinGame}
+            onStartGame={handleStartGame}
             onRefresh={fetchGames}
           />
         </div>

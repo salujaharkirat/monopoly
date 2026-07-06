@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Player(models.Model):
   user = models.OneToOneField(
@@ -25,6 +26,14 @@ class Game(models.Model):
     Player,
     related_name="games",
     verbose_name="list of players"
+  )
+  max_players = models.IntegerField(
+      default=4,
+      validators=[MinValueValidator(2), MaxValueValidator(8)]
+  )
+  min_players = models.IntegerField(
+      default=2,
+      validators=[MinValueValidator(2), MaxValueValidator(4)]
   )
   state = models.CharField(max_length=1, choices=GAME_STATE_CHOICES, default="N")
   current_player_index = models.IntegerField(default=0)

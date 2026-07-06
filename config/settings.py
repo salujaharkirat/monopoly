@@ -40,9 +40,29 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',  # Generates DB-backed database tokens
     'authentication',
+    'channels',
     'user',
     'game',
 ]
+
+ASGI_APPLICATION = 'monopoly.asgi.application'
+
+# Redis Channel Layer (Production)
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#         'CONFIG': {
+#             "hosts": [('127.0.0.1', 6379)],
+#         },
+#     },
+# }
+
+# For development (in-memory)
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    },
+}
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

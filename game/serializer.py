@@ -155,3 +155,6 @@ class GameDetailSerializer(serializers.ModelSerializer):
           except Player.DoesNotExist:
               return False
       return False
+
+class StartGameSerializer():
+   pass

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',  # Generates DB-backed database tokens
     'authentication',
     'user',
+    'game',
 ]
 
 REST_FRAMEWORK = {

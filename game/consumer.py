@@ -63,13 +63,6 @@ class GameConsumer(AsyncWebsocketConsumer):
         
         # Send current game state
         await self.send_game_state()
-        
-        # # Broadcast player joined
-        # await self.broadcast_game_state({
-        #     'type': 'player_joined',
-        #     'username': self.user.username,
-        #     'message': f"{self.user.username} joined the game"
-        # })
     
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
@@ -164,6 +157,33 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.send_error(str(e))
     
     async def handle_buy_property(self, data):
+        try:
+            property_id = data.get('property_id')
+            player = await self.get_player(self.user)
+            result = await GameService.buy_property(self.game_id, player.id, property_id)
+
+            if not result['success']:
+                await self.send_error(result['message'])
+                return
+            
+            # Get updated game state
+            game_state = await self.get_game_state()
+            
+            # Broadcast property purchase to all players
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'property_purchased',
+                    'data': {
+                        'message': result['message'],
+                        'purchase_data': result['data'],
+                        'game_state': game_state
+                    }
+                }
+            )
+        except Exception as e:
+            print(f"❌ Error buying property: {e}")
+            await self.send_error(str(e))
         pass
     
     async def handle_end_turn(self):

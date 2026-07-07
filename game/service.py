@@ -3,7 +3,7 @@ import random
 
 from django.core.exceptions import ValidationError
 
-from .models import Game, Player, Square
+from .models import Game, Player, Square, Property
 from .serializer import GameDetailSerializer
 
 logger = logging.getLogger(__name__)
@@ -85,8 +85,6 @@ class GameService:
     try:
       game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)
       player = Player.objects.get(id=player_id)
-
-
 
       if game.state != Game.GameState.PLAYING:
         return {
@@ -226,8 +224,76 @@ class GameService:
   @staticmethod
   def buy_property(game_id, player_id, property_id):
     """Buy a property"""
-    # Implementation for Phase 3
-    pass
+    try:
+      game = Game.objects.get(id=game_id)
+      player = Game.objects.get(id=player_id)
+
+      if not game or not player:
+        return {
+            'success': False,
+            'message': 'Game or Player not found'
+        }
+
+      property_obj = Property.objects.select_related('square', 'owner').get(id=property_id)
+
+      # Validate
+      if game.state != Game.GameState.PLAYING:
+        return {
+            'success': False,
+            'message': 'Game is not in playing state'
+        }
+      
+      if property_obj.owner:
+        return {
+          'success': False,
+          'message': 'Property is already owned'
+        }
+      
+      if player.money < property_obj.square.price:
+        return {
+          'success': False,
+          'message': f'Not enough money! Need ${property_obj.square.price}, have ${player.money}'
+        }
+      
+      current_player = game.get_current_player()
+
+      if current_player.id != player.id:
+        return {
+          'success': False,
+          'message': 'Not your turn'
+        }
+  
+      # Check if player is on this property
+      if player.position != property_obj.square.position:
+        return {
+            'success': False,
+            'message': 'You are not on this property'
+        }
+      
+      player.money -= property_obj.square_price
+      property_obj.owner = player
+      property_obj.save()
+      player.save()
+
+      return {
+        'success': True,
+        'message': f'{player.user.username} bought {property_obj.square.name} for ${property_obj.square.price}',
+        'data': {
+          'property_id': property_obj.id,
+          'property_name': property_obj.square.name,
+          'price': property_obj.square.price,
+          'player_money': player.money
+        }
+      }
+
+    except Game.DoesNotExist:
+      return {'success': False, 'message': 'Game not found'}
+    except Player.DoesNotExist:
+      return {'success': False, 'message': 'Player not found'}
+    except Property.DoesNotExist:
+      return {'success': False, 'message': 'Property not found'}
+    except Exception as e:
+      return {'success': False, 'message': str(e)}
   
   @staticmethod
   def end_turn(game_id, player_id):

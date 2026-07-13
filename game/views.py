@@ -2,6 +2,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import login
 from django.contrib import messages
+from django.db.models import QuerySet
 
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
@@ -76,7 +77,7 @@ class GameListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = GameSerializer
     
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet[Game]:
         return Game.objects.filter(state=Game.GameState.WAITING)
 
 class GameDetailView(generics.RetrieveAPIView):
@@ -189,21 +190,5 @@ class StartGameView(APIView):
                 'data': GameDetailSerializer(game).data
             }
         )
-        
-        return Response(GameDetailSerializer(game).data)
-
-class GameStatusView(APIView):
-    """Get game status"""
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get(self, request, game_id):
-        try:
-            game = Game.objects.get(id=game_id)
-        except Game.DoesNotExist:
-            return Response(
-                {"detail": "Game not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
         
         return Response(GameDetailSerializer(game).data)

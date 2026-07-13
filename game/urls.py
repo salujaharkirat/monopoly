@@ -12,5 +12,4 @@ urlpatterns = [
     path('<int:game_id>/', views.GameDetailView.as_view(), name='game-detail'),
     path('<int:game_id>/join/', views.JoinGameView.as_view(), name='join-game'),
     path('<int:game_id>/start/', views.StartGameView.as_view(), name='start-game'),
-    path('<int:game_id>/status/', views.GameStatusView.as_view(), name='game-status'),
 ]

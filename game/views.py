@@ -3,6 +3,22 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login
 from django.contrib import messages
 
+from rest_framework import generics, status, permissions
+from rest_framework.response import Response
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.views import APIView
+from django.contrib.auth import authenticate, login, logout
+from rest_framework.authtoken.models import Token
+from django.contrib.auth.models import User
+from .models import Game, Player
+from .serializer import (
+    GameSerializer, 
+    GameDetailSerializer, 
+    CreateGameSerializer
+)
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
 def register_view(request):
     """User registration view"""
     if request.method == 'POST':
@@ -53,23 +69,6 @@ def register_view(request):
             return render(request, 'registration/register.html')
     
     return render(request, 'registration/register.html')
-
-from rest_framework import generics, status, permissions
-from rest_framework.response import Response
-from rest_framework.authentication import TokenAuthentication
-from rest_framework.views import APIView
-from django.contrib.auth import authenticate, login, logout
-from rest_framework.authtoken.models import Token
-from django.contrib.auth.models import User
-from .models import Game, Player
-from .serializer import (
-    GameSerializer, 
-    GameDetailSerializer, 
-    CreateGameSerializer
-)
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
-
 
 class GameListView(generics.ListAPIView):
     """List all available games"""

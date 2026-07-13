@@ -301,4 +301,76 @@ class GameService:
     # Implementation for Phase 3
     pass
 
+  @staticmethod
+  def leave_game(game_id, player_id):
+    try:
+      game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)
+      player = Player.objects.get(id=player_id)
+
+      if not game.players.filter(id=player.id).exists():
+        return {
+          'success': False,
+          'message': 'You are not in this game'
+        }
+      
+      if game.state == Game.GameState.FINISHED:
+        return {
+          'success': False,
+          'message': 'Game is already finished'
+        }
+      
+      if game.state == Game.GameState.PLAYING:
+        properties = Property.objects.filter(owner=player, game=game)
+        for prop in properties:
+          prop.owner = None
+          prop.houses = 0
+          prop.is_mortgaged = False
+          prop.save()
+      
+      game.players.remove(player)
+      if game.created_by.id == player_id and game.players.exists():
+        new_creator = game.players.first()
+        game.created_by = new_creator
+        game.save()
+      
+      if game.state == Game.GameState.WAITING:
+        if game.players.count() == 0:
+          Property.objects.filter(game=game).delete()
+          game.delete()
+          return {
+            'success': True,
+            'message': f'Game {game.name} was not started and empty and is deleted',
+            'game_deleted': True
+          }
+        if game.players.count() < game.min_players:
+          pass
+      
+      if game.state == Game.GameState.PLAYING and game.players.count() < 2:
+        game.state = Game.GameState.FINISHED
+        game.save()
+
+        winner = game.players.first()
+        return {
+          'success': True,
+          'message': f'{player.user.username} left the game. {winner.user.username} wins!',
+          'game_ended': True,
+          'winner': winner.user.username
+                              
+        }
+      
+      game.save()
+      return {
+        'success': True,
+        'message': f'{player.user.username} left the game',
+        'game_id': game.id,
+        'player_count': game.players.count(),
+        'game_state': game.state
+      }
+    except Game.DoesNotExist:
+      return {'success': False, 'message': 'Game not found'}
+    except Player.DoesNotExist:
+      return {'success': False, 'message': 'Player not found'}
+    except Exception as e:
+      return {'success': False, 'message': str(e)}
+
   

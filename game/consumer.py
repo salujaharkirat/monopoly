@@ -85,6 +85,8 @@ class GameConsumer(AsyncWebsocketConsumer):
                 await self.handle_end_turn()
             elif action == 'get_state':
                 await self.send_game_state()
+            elif action == 'leave_game':
+                await self.handle_leave_game()
             else:
                 await self.send_error(f"Unknown action: {action}")
                 
@@ -95,6 +97,37 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.send_error(str(e))
     
     # ====== ACTION HANDLERS
+
+    async def handle_leave_game(self):
+        try:
+            player = await self.get_player(self.user)
+            result = await self.leave_game_async(self.game.id, player.id)
+
+            if not result['success']:
+                await self.send_error(result['message'])
+                return
+            
+            # Broadcast to all remaining players
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'player_left_game',
+                    'data': result
+                }
+            )
+
+            # Send confirmation to the leaving player
+            await self.send(text_data=json.dumps({
+                'type': 'leave_confirmed',
+                'data': result
+            }))
+            
+            # Close the WebSocket connection for the leaving player
+            await self.close()
+        except Exception as e:
+            print(f"❌ Error leaving game: {e}")
+            await self.send_error(str(e))
+
 
     async def handle_start_game(self):
         try:
@@ -188,6 +221,10 @@ class GameConsumer(AsyncWebsocketConsumer):
     
     async def handle_end_turn(self):
         pass
+
+    @database_sync_to_async
+    def leave_game_async(self, game_id, player_id):
+        return GameService.leave_game(game_id, player_id)
 
     @database_sync_to_async
     def roll_dice_async(self, game_id, player_id):

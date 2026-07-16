@@ -4,6 +4,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 
 class Player(models.Model):
+  id: int
   user = models.OneToOneField(
       User, 
       on_delete=models.PROTECT,
@@ -17,6 +18,7 @@ class Player(models.Model):
   updated_at = models.DateTimeField(auto_now=True)
 
 class Game(models.Model):
+  id: int 
   class GameState(models.TextChoices):
     WAITING = 'WT', 'Waiting for Players'
     PLAYING = 'PL', 'Playing'

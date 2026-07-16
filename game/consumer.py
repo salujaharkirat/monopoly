@@ -6,25 +6,24 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
-from .models import Game, Player
-from .serializer import GameDetailSerializer
-from .service import GameService
+from game.models import Game, Player
+from game.serializer import GameDetailSerializer
+from game.service import GameService
 
 logger = logging.getLogger(__name__)
 
 class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.game_id = self.scope['url_route']['kwargs']['game_id']
+        self.game_id = self.scope.get('url_route', {}).get('kwargs', {}).get('game_id')
         self.room_group_name = f'game_{self.game_id}'
-
         
         # Get token from query string
         query_string = self.scope['query_string'].decode()
         token_key = None
+
         if 'token=' in query_string:
             token_key = query_string.split('token=')[1].split('&')[0]
         
-
         if not token_key:
             logger.error("No token provided")
             await self.close(code=4001)
@@ -64,14 +63,17 @@ class GameConsumer(AsyncWebsocketConsumer):
         # Send current game state
         await self.send_game_state()
     
-    async def disconnect(self, close_code):
+    async def disconnect(self, code):
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
     
-    async def receive(self, text_data):
+    async def receive(self, text_data=None, bytes_data=None):
         try:
+            if not text_data:
+                await self.send_error("Missing text data")
+                return
             data = json.loads(text_data)
             action = data.get('action')
 
@@ -96,8 +98,6 @@ class GameConsumer(AsyncWebsocketConsumer):
             logger.error(f"Error handling message: {e}")
             await self.send_error(str(e))
     
-    # ====== ACTION HANDLERS
-
     async def handle_leave_game(self):
         try:
             player = await self.get_player(self.user)
@@ -127,7 +127,6 @@ class GameConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             print(f"❌ Error leaving game: {e}")
             await self.send_error(str(e))
-
 
     async def handle_start_game(self):
         try:
@@ -166,12 +165,11 @@ class GameConsumer(AsyncWebsocketConsumer):
             player = await self.get_player(self.user)
             game = await self.get_game(self.game_id)
 
-            if not player or not game:
+            if player is None or game is None:
                 await self.send_error("Player or game not found")
                 return
 
             result = await self.roll_dice_async(game.id, player.id)
-
 
             if not result['success']:
                 await self.send_error(result['message'])
@@ -233,26 +231,22 @@ class GameConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_user_from_token(self, key):
         """Get user from token - handles all cases"""
-        print(f"🔍 Getting user from token: {key[:20]}...")
         try:
-            # ✅ Use select_related to load user in the same query
             token = Token.objects.select_related('user').get(key=key)
             
-            # ✅ Safely get user
             user = getattr(token, 'user', None)
             
             if not user:
-                print("❌ Token has no user")
+                print("Token has no user")
                 return None
                 
-            print(f"✅ Found user: {user.username}")
             return user
             
         except Token.DoesNotExist:
-            print(f"❌ Token not found: {key[:20]}...")
+            print(f"Token not found: {key[:20]}...")
             return None
         except Exception as e:
-            print(f"❌ Error getting user: {type(e).__name__}: {e}")
+            print(f"Error getting user: {type(e).__name__}: {e}")
             import traceback
             traceback.print_exc()
             return None
@@ -269,10 +263,9 @@ class GameConsumer(AsyncWebsocketConsumer):
         return Player.objects.get(user=user)
         
     @database_sync_to_async
-    def get_game(self, game_id):
+    def get_game(self, game_id) -> Game | None:
         """Get game with related fields prefetched"""
         try:
-            # ✅ Use select_related to prefetch created_by and its user
             game = Game.objects.select_related('created_by', 'created_by__user').get(id=game_id)
             return game
         except Game.DoesNotExist:

@@ -93,6 +93,12 @@ class GameService:
         }
       
       current_player = game.get_current_player()
+      if not current_player:
+        return {
+          'success': False,
+          'message': 'Player not found'
+        }
+      
       if current_player.id != player.id:
         return {
           'success': False,
@@ -116,10 +122,10 @@ class GameService:
       new_position = (old_position + total) % 40
 
 
-      # Check if passed GO    
+      # Check if passed GO
       passed_go = new_position < old_position
 
-      # Upate player position
+      # Update player position
       player.position = new_position
       player.save()
 
@@ -127,8 +133,6 @@ class GameService:
         player.money += 200
         player.save()
     
-
-      
       square = Square.objects.get(position=new_position)
       square_result = GameService.handle_square_landing(player, square, game)
 
@@ -226,7 +230,7 @@ class GameService:
     """Buy a property"""
     try:
       game = Game.objects.get(id=game_id)
-      player = Game.objects.get(id=player_id)
+      player = Player.objects.get(id=player_id)
 
       if not game or not player:
         return {

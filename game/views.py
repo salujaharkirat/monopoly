@@ -183,12 +183,14 @@ class StartGameView(APIView):
         
         # Broadcast via WebSocket
         channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f'game_{game_id}',
-            {
-                'type': 'game_started',
-                'data': GameDetailSerializer(game).data
-            }
-        )
+
+        if channel_layer:
+            async_to_sync(channel_layer.group_send)(
+                f'game_{game_id}',
+                {
+                    'type': 'game_started',
+                    'data': GameDetailSerializer(game).data
+                }
+            )
         
         return Response(GameDetailSerializer(game).data)

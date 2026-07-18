@@ -197,7 +197,10 @@ const GameBoard = () => {
 
   const handleBuyProperty = () => {
     // Will implement later
-    addNotification('🏠 Buying property - Coming soon!', 'info');
+    setIsProcessing(true);
+    const position = game.players.find(player => player.username === user.username).position;
+    const propertyId = game.squares.find(square => square.position === position).id;
+    websocketService.send({ action: 'buy_property', property_id: propertyId });
   };
 
   const handleEndTurn = () => {

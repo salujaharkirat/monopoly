@@ -190,12 +190,16 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def handle_buy_property(self, data):
         try:
             property_id = data.get('property_id')
+            print("hello")
             player = await self.get_player(self.user)
-            result = await GameService.buy_property(self.game_id, player.id, property_id)
+            print("hello 1")
+            result = await self.buy_property_async(self.game_id, player.id, property_id)
 
+            print("hello 2")
             if not result['success']:
                 await self.send_error(result['message'])
                 return
+
             
             # Get updated game state
             game_state = await self.get_game_state()
@@ -217,6 +221,11 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.send_error(str(e))
         pass
     
+    @database_sync_to_async
+    def buy_property_async(self, game_id, player_id, property_id):
+        """Async wrapper for buy_property"""
+        return GameService.buy_property(game_id, player_id, property_id)
+
     async def handle_end_turn(self):
         pass
 
@@ -356,5 +365,12 @@ class GameConsumer(AsyncWebsocketConsumer):
         print(f"📨 Dice rolled event received")
         await self.send(text_data=json.dumps({
             'type': 'dice_rolled',
+            'data': event['data']
+        }))
+    
+    async def property_purchased(self, event):
+        print(f"Propert purchased")
+        await self.send(text_data=json.dumps({
+            'type': 'property_purchased',
             'data': event['data']
         }))

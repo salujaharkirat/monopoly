@@ -74,7 +74,7 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 - [x]  Rent collection
 - [x]  Tax squares
 - [x]  Go to Jail
-- [ ]  Turn management
+- [x]  Turn management
 - [ ]  Community chest
 - [ ]  Chance
 - [ ]  Pass GO ($200)

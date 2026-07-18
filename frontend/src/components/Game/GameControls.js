@@ -54,7 +54,7 @@ const GameControls = ({
           </button>
           
           <button 
-            className="btn-properties" 
+            className="btn-properties"  
             onClick={onViewProperties}
             disabled={isDisabled}
           >
@@ -87,7 +87,7 @@ const GameControls = ({
       {isPlaying && game?.state === 'PL' && (
         <div className="turn-info">
           <span className="turn-label">Turn:</span>
-          <span className="turn-number">{game?.number_of_turns || 0}</span>
+          <span className="turn-number">{game?.turn_number || 0}</span>
         </div>
       )}
     </div>

@@ -16,7 +16,7 @@ class WebSocketService {
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//localhost:8000/ws/game/${gameId}/?token=${token}`;
+    const wsUrl = `${protocol}//localhost:8001/ws/game/${gameId}/?token=${token}`;
     
     this.socket = new WebSocket(wsUrl);
     

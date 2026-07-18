@@ -53,8 +53,8 @@ const Lobby = () => {
     }
   }
 
-  const handleGameCreated = (game) => {
-    navigate(`/game/${game.id}`);
+  const navigateToGame = (gameId) => {
+    navigate(`/game/${gameId}`);
   };
 
   if (loading) {
@@ -72,15 +72,17 @@ const Lobby = () => {
         <div className="games-section">
           <h2>Available Games</h2>
           <GameList 
-            games={games} 
+            games={games}
+            user={user}
             onJoinGame={handleJoinGame}
             onStartGame={handleStartGame}
+            navigateToGame={navigateToGame}
             onRefresh={fetchGames}
           />
         </div>
         
         <div className="create-section">
-          <CreateGameForm onGameCreated={handleGameCreated} />
+          <CreateGameForm onGameCreated={navigateToGame} />
         </div>
       </div>
     </div>

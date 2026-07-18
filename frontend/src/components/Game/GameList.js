@@ -1,7 +1,7 @@
 import React from 'react';
 import './GameList.css';
 
-const GameList = ({ games, onStartGame, onJoinGame, onRefresh }) => {
+const GameList = ({ games, user, onStartGame, onJoinGame, onRefresh, navigateToGame }) => {
   if (!games || games.length === 0) {
     return (
       <div className="game-list-empty">
@@ -23,19 +23,27 @@ const GameList = ({ games, onStartGame, onJoinGame, onRefresh }) => {
             <p>Created by: {game.created_by_username}</p>
             <p>Status: {game.state}</p>
           </div>
-          <button 
-            onClick={() => onJoinGame(game.id)}
-            className="join-btn"
-            disabled={game.player_count >= game.max_players}
-          >
-            {game.player_count >= game.max_players ? 'Full' : 'Join Game'}
-          </button>
-          <button 
-            onClick={() => onStartGame(game.id)}
-            className="join-btn"
-          >
-            Start Game
-          </button>
+          {
+            game.state != 'PL' &&  (
+            <button 
+              onClick={() => onStartGame(game.id)}
+              className="join-btn"
+            >
+              {user.userName === game.created_by_username ? "Start Game" : "Join Game"}
+            </button>
+            )
+          }
+          {
+            game.state == 'PL' && (
+              <button 
+              onClick={() => navigateToGame(game.id)}
+              className="join-btn"
+              >
+                Go to Game
+            </button>
+            )
+          }
+
         </div>
       ))}
     </div>

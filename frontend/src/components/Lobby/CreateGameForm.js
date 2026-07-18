@@ -37,7 +37,7 @@ const CreateGameForm = ({ onGameCreated }) => {
     
     try {
       const response = await gameAPI.create(formData);
-      onGameCreated(response.data);
+      onGameCreated(response.data?.id);
     } catch (error) {
       console.error('Error creating game:', error);
       setError(error.response?.data?.detail || 'Failed to create game');

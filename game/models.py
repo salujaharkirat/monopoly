@@ -132,12 +132,19 @@ class Square(models.Model):
      return f"{self.position}: {self.name}"
 
 class Property(models.Model):
-   square = models.OneToOneField(Square, on_delete = models.SET_NULL, related_name='property', null=True)
-   owner = models.ForeignKey('Player', on_delete=models.SET_NULL, null=True, blank=True, related_name='properties')
-   # TODO: Hotels?
-   houses = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(5)])
-   is_mortgaged = models.BooleanField(default=False)
-   game = models.ForeignKey('Game', on_delete=models.SET_NULL, related_name='properties', null=True)
+  id: int
+  square = models.OneToOneField(Square, on_delete = models.SET_NULL, related_name='property', null=True)
+  owner = models.ForeignKey('Player', on_delete=models.SET_NULL, null=True, blank=True, related_name='properties')
+  # TODO: Hotels?
+  houses = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(5)])
+  is_mortgaged = models.BooleanField(default=False)
+  game = models.ForeignKey('Game', on_delete=models.SET_NULL, related_name='properties', null=True)
 
-   def __str__(self):
-      return f"{self.square.name} - {self.owner.user.username if self.owner else 'Unowned'}"
+  def __str__(self):
+    return f"{self.square.name} - {self.owner.user.username if self.owner else 'Unowned'}"
+
+  def set_owner(self, player):
+    """Safely set the owner"""
+    self.owner = player
+    self.save()
+    return self

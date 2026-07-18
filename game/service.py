@@ -28,8 +28,17 @@ class GameService:
           'success': False,
           'message': '\n'.join(errors)
         }
+      
+      game.start_game()
 
-      game.start_game(player)
+      for square in Square.objects.all():
+        Property.objects.create(
+            square=square,
+            game=game,
+            owner=None,  # ✅ Empty! Unowned
+            houses=0,
+            is_mortgaged=False
+        )
 
       game_state = GameService.get_game_state(game_id)
       return {
@@ -144,7 +153,7 @@ class GameService:
         }
       
       if not is_doubles:
-        game.next_turn()
+        # game.next_turn()
         game.save()
       
       game_state = GameDetailSerializer(game).data
@@ -238,8 +247,6 @@ class GameService:
             'message': 'Game or Player not found'
         }
 
-      property_obj = Property.objects.select_related('square', 'owner').get(id=property_id)
-
       # Validate
       if game.state != Game.GameState.PLAYING:
         return {
@@ -247,19 +254,52 @@ class GameService:
             'message': 'Game is not in playing state'
         }
       
+
+      property_obj = Property.objects.select_related('square', 'owner').get(id=property_id, game=game)
+  
       if property_obj.owner:
         return {
           'success': False,
           'message': 'Property is already owned'
         }
+
+      if not property_obj.square:
+        return {
+          'success': False,
+          'message': 'No square mapping found for property'
+        }
+
+      # Check if this square can be purchased
+      if property_obj.square.square_type not in [
+          Square.SquareType.PROPERTY,
+          Square.SquareType.RAILROAD,
+          Square.SquareType.UTILITY
+      ]:
+        return {
+            'success': False,
+            'message': f'{property_obj.square.name} cannot be purchased'
+        }
       
-      if player.money < property_obj.square.price:
+      price = property_obj.square.price
+      if price is None:
+        return {
+          'success': False,
+          'message': f'{property_obj.square.name} doesn ot have a valid price'
+        }
+
+      if player.money < price:
         return {
           'success': False,
           'message': f'Not enough money! Need ${property_obj.square.price}, have ${player.money}'
         }
       
       current_player = game.get_current_player()
+  
+      if current_player is None:
+        return {
+            'success': False,
+            'message': 'No current player found'
+        }
 
       if current_player.id != player.id:
         return {
@@ -274,8 +314,8 @@ class GameService:
             'message': 'You are not on this property'
         }
       
-      player.money -= property_obj.square_price
-      property_obj.owner = player
+      player.money -= price
+      property_obj.set_owner(player)
       property_obj.save()
       player.save()
 

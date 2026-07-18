@@ -30,6 +30,7 @@ const GameBoard = () => {
   const wsHandlerRef = useRef();
 
   useEffect(() => {
+    console.log("inside socket...")
     fetchGame();
     websocketService.connect(gameId);
     
@@ -52,7 +53,7 @@ const GameBoard = () => {
   const fetchGame = async () => {
     try {
       setLoading(true);
-      const response = await gameAPI.status(gameId);
+      const response = await gameAPI.get(gameId);
       setGame(response.data);
       setError(null);
     } catch (error) {
@@ -261,7 +262,7 @@ const GameBoard = () => {
              game.state === 'PL' ? '🎮 Playing' : 
              '🏁 Finished'}
           </span>
-          <span>Turn: {game.number_of_turns}</span>
+          <span>Turn: {game.turn_number}</span>
           <span>Players: {game.player_count}/{game.max_players}</span>
         </div>
         <button className="leave-btn" onClick={handleLeaveGame}>

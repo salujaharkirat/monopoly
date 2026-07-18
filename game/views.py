@@ -76,17 +76,29 @@ class GameListView(generics.ListAPIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = GameSerializer
-    
-    def get_queryset(self) -> QuerySet[Game]:
-        return Game.objects.filter(state=Game.GameState.WAITING)
 
+    def get(self, request):
+        player = request.user.monopoly_player
+        games = player.games.all().order_by('-created_at')
+        
+        serializer = GameSerializer(games, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
 class GameDetailView(generics.RetrieveAPIView):
     """Get game details"""
     authentication_classes = [TokenAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = GameDetailSerializer
-    queryset = Game.objects.all()
-    lookup_field = 'id'
+    # queryset = Game.objects.all()
+    # # lookup_field = 'id'
+
+    def get(self, request, game_id):
+        player = request.user.monopoly_player
+        game = player.games.get(id=game_id)
+
+        serializer = GameSerializer(game)
+        return Response(serializer.data, status=status.HTTP_200_OK) 
+
 
 class CreateGameView(APIView):
     """Create a new game"""
@@ -130,6 +142,10 @@ class JoinGameView(APIView):
     
     def post(self, request, game_id):
         try:
+            player, created = Player.objects.get_or_create(
+                user=request.user,
+                defaults={'money': 2000}
+            )
             game = Game.objects.get(id=game_id)
         except Game.DoesNotExist:
             return Response(

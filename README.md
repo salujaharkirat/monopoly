@@ -77,7 +77,7 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 - [x]  Turn management
 - [ ]  Community chest
 - [ ]  Chance
-- [ ]  Pass GO ($200)
+- [x]  Pass GO ($200)
 
 ## **Phase 8: Property Management**
 

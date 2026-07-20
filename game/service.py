@@ -168,7 +168,8 @@ class GameService:
             'is_doubles': is_doubles,
             'old_position': old_position,
             'new_position': new_position,
-            'passed_go': passed_go
+            'passed_go': passed_go,
+            'total': total,
           },
           'square_result': square_result,
           'game_state': game_state
@@ -340,10 +341,24 @@ class GameService:
       return {'success': False, 'message': str(e)}
   
   @staticmethod
-  def end_turn(game_id, player_id):
+  def end_turn(game_id):
     """End current turn"""
-    # Implementation for Phase 3
-    pass
+    try:
+      game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)
+      total_players = game.players.count()
+      next_player_index = (game.current_player_index + 1) % total_players
+      game.turn_number += 1
+      game.current_player_index = next_player_index
+      game.save()
+
+      next_player = game.get_current_player()
+
+      return {
+        'success': True,
+        'message': f"{next_player.user.username}'s turn now"
+      }
+    except Exception as e:
+      return {'success': False, 'message': str(e)}
 
   @staticmethod
   def leave_game(game_id, player_id):

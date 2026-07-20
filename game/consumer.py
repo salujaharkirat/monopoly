@@ -84,7 +84,7 @@ class GameConsumer(AsyncWebsocketConsumer):
             elif action == 'buy_property':
                 await self.handle_buy_property(data)
             elif action == 'end_turn':
-                await self.handle_end_turn()
+                await self.handle_end_turn(data)
             elif action == 'get_state':
                 await self.send_game_state()
             elif action == 'leave_game':
@@ -190,12 +190,9 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def handle_buy_property(self, data):
         try:
             property_id = data.get('property_id')
-            print("hello")
             player = await self.get_player(self.user)
-            print("hello 1")
             result = await self.buy_property_async(self.game_id, player.id, property_id)
 
-            print("hello 2")
             if not result['success']:
                 await self.send_error(result['message'])
                 return
@@ -220,14 +217,46 @@ class GameConsumer(AsyncWebsocketConsumer):
             print(f"❌ Error buying property: {e}")
             await self.send_error(str(e))
         pass
+
+    async def handle_end_turn(self):
+        try:
+            game = await self.get_game(self.game_id)
+
+            if game is None:
+                await self.send_error("Player or game not found")
+                return
+
+            result = await self.handle_end_turn_async(game.id)
+
+            if not result['success']:
+                await self.send_error(result['message'])
+                return
+            
+            game_state = await self.get_game_state()
+
+            #Broadcast property purchase to all players
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'turn_ended',
+                    'data': {
+                        'message': result['message'],
+                        'game_state': game_state,
+                    }
+                }
+            )
+
+        except Exception as e:
+            await self.send_error(str(e))
     
     @database_sync_to_async
     def buy_property_async(self, game_id, player_id, property_id):
         """Async wrapper for buy_property"""
         return GameService.buy_property(game_id, player_id, property_id)
 
-    async def handle_end_turn(self):
-        pass
+    @database_sync_to_async
+    def handle_end_turn_async(self, game_id):
+        return GameService.end_turn(game_id)
 
     @database_sync_to_async
     def leave_game_async(self, game_id, player_id):
@@ -369,8 +398,13 @@ class GameConsumer(AsyncWebsocketConsumer):
         }))
     
     async def property_purchased(self, event):
-        print(f"Propert purchased")
         await self.send(text_data=json.dumps({
             'type': 'property_purchased',
+            'data': event['data']
+        }))
+    
+    async def turn_ended(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'turn_ended',
             'data': event['data']
         }))

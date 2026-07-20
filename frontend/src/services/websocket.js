@@ -15,6 +15,13 @@ class WebSocketService {
       return;
     }
 
+    // Avoid opening a second socket if one is already open/connecting
+    if (this.socket && this.socket.readyState <= WebSocket.OPEN) {
+      return;
+    }
+
+    this.intentionalClose = false;
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//localhost:8001/ws/game/${gameId}/?token=${token}`;
     
@@ -44,7 +51,12 @@ class WebSocketService {
         console.error('WebSocket authentication failed');
         return;
       }
-      
+
+      // Don't reconnect if we closed the socket on purpose (e.g. unmount)
+      if (this.intentionalClose) {
+        return;
+      }
+
       // Auto-reconnect
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++;
@@ -62,6 +74,7 @@ class WebSocketService {
 
   disconnect() {
     if (this.socket) {
+      this.intentionalClose = true;
       this.socket.close();
       this.socket = null;
       this.isConnected = false;

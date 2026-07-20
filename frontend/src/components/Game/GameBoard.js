@@ -30,7 +30,6 @@ const GameBoard = () => {
   const wsHandlerRef = useRef();
 
   useEffect(() => {
-    console.log("inside socket...")
     fetchGame();
     websocketService.connect(gameId);
     
@@ -77,16 +76,19 @@ const GameBoard = () => {
         addNotification('🎮 Game started! Good luck!', 'success');
         setGame(data.data);
         break;
+      case 'property_purchased':
+        addNotification(data.data.message);
+        setIsProcessing(false);
+        break;
       case 'dice_rolled':
         handleDiceRolled(data.data);
         break;
       case 'game_update':
         setGame(data.data);
         break;
-      case 'turn_update':
-        const nextPlayer = data.data?.current_player?.username || 'Unknown';
-        addNotification(`⏰ It's ${nextPlayer}'s turn!`, 'info');
-        setGame(data.data);
+      case 'turn_ended':
+        addNotification(data.data?.message);
+        setGame(data.data?.game_state);
         setIsProcessing(false);
         setDiceState(prev => ({ ...prev, isRolling: false }));
         break;
@@ -122,28 +124,29 @@ const GameBoard = () => {
       isRolling: true,
       animationComplete: false
     });
-
-    console.log("info..", dice);
     
-    // Show dice result notification
     addNotification(`🎲 Rolled ${dice.dice1} + ${dice.dice2} = ${dice.total}${dice.is_doubles ? ' 🎯 Doubles!' : ''}`, 'info');
     
-    // Animate player movement
     const playerId = game_state?.current_player?.id;
+    
     if (playerId) {
+      const currentPlayer = game_state?.players?.find(p => p.id === playerId);
+      const startPosition = currentPlayer?.position || 0;
+      
+      const totalSteps = dice.total || 0;
+      const finalPosition = (startPosition + totalSteps) % 40;
+      
+      
       setMovingPlayers(prev => ({ ...prev, [playerId]: true }));
       
-      // Calculate movement steps
-      let currentPos = dice.old_position;
+      let currentPos = startPosition;
       let stepCount = 0;
-      const totalSteps = dice.total;
       
       const interval = setInterval(() => {
         if (stepCount < totalSteps) {
           currentPos = (currentPos + 1) % 40;
           stepCount++;
           
-          // Update player position in UI
           setGame(prev => {
             if (!prev) return prev;
             const updatedPlayers = prev.players.map(p => {
@@ -154,11 +157,11 @@ const GameBoard = () => {
             });
             return { ...prev, players: updatedPlayers };
           });
+
         } else {
           clearInterval(interval);
           setMovingPlayers(prev => ({ ...prev, [playerId]: false }));
           
-          // Update with final game state
           setGame(game_state);
           setDiceState(prev => ({ 
             ...prev, 
@@ -167,17 +170,15 @@ const GameBoard = () => {
           }));
           setIsProcessing(false);
           
-          // Show square result
           if (square_result?.message) {
             addNotification(`📍 ${square_result.message}`, 'info');
           }
           
-          // Check if can buy property
           if (square_result?.can_buy) {
             addNotification(`🏠 ${square_result.name} is available for $${square_result.price}`, 'success');
           }
         }
-      }, 400); // 400ms per step
+      }, 400);
     }
   };
 
@@ -196,7 +197,6 @@ const GameBoard = () => {
   };
 
   const handleBuyProperty = () => {
-    // Will implement later
     setIsProcessing(true);
     const position = game.players.find(player => player.username === user.username).position;
     const propertyId = game.squares.find(square => square.position === position).id;
@@ -205,7 +205,6 @@ const GameBoard = () => {
 
   const handleEndTurn = () => {
     if (diceState.isRolling || isProcessing) return;
-    // Only end turn if not doubles
     if (diceState.values?.is_doubles) {
       addNotification('🎯 You rolled doubles! Roll again!', 'info');
       return;

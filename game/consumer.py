@@ -84,7 +84,7 @@ class GameConsumer(AsyncWebsocketConsumer):
             elif action == 'buy_property':
                 await self.handle_buy_property(data)
             elif action == 'end_turn':
-                await self.handle_end_turn(data)
+                await self.handle_end_turn()
             elif action == 'get_state':
                 await self.send_game_state()
             elif action == 'leave_game':

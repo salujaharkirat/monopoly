@@ -59,13 +59,13 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 - [x]  40-square Monopoly board
 - [x]  Player tokens with movement animation
 - [x]  Dice with rolling animation
-- [ ]  Game controls
+- [x]  Game controls
     - [x]  Roll
     - [x]  Buy
     - [x]  Mortage
     - [x]  Game State
     - [x]  Leave Game
-    - [ ]  End turn
+    - [x]  End turn
 
 ## **Phase 7: Core Game Logic**
 

@@ -135,7 +135,7 @@ class Property(models.Model):
   id: int
   square = models.OneToOneField(Square, on_delete = models.SET_NULL, related_name='property', null=True)
   owner = models.ForeignKey('Player', on_delete=models.SET_NULL, null=True, blank=True, related_name='properties')
-  # TODO: Hotels?
+  hotels = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(5)])
   houses = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(5)])
   is_mortgaged = models.BooleanField(default=False)
   game = models.ForeignKey('Game', on_delete=models.SET_NULL, related_name='properties', null=True)

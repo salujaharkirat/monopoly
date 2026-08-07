@@ -75,7 +75,7 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 - [x]  Tax squares
 - [x]  Go to Jail
 - [x]  Turn management
-- [ ]  Community chest
+- [x]  Community chest
 - [ ]  Chance
 - [x]  Pass GO ($200)
 
@@ -89,7 +89,7 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 ## **Phase 9: Special Squares**
 
 - [ ]  Chance cards (16 cards)
-- [ ]  Community Chest cards (16 cards)
+- [x]  Community Chest cards (16 cards)
 - [ ]  Complete jail system (bail, doubles, 3 turns)
 - [ ]  Railroads (4, rent multiplies)
 - [ ]  Utilities (Electric, Water)

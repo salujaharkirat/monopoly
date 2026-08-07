@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import Board from './Board';
 import PlayerList from './PlayerList';
 import GameControls from './GameControls';
+import CardDisplay from './CardDisplay';
 import Dice from './Dice';
 import Loading from '../Common/Loading';
 import './GameBoard.css';
@@ -27,19 +28,21 @@ const GameBoard = () => {
   });
   const [movingPlayers, setMovingPlayers] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showCardModal, setShowCardModal] = useState(false);
+  const [currentCard, setCurrentCard] = useState(null);
   const wsHandlerRef = useRef();
 
   useEffect(() => {
     fetchGame();
     websocketService.connect(gameId);
-    
+
     const handler = (data) => {
       console.log('WebSocket message:', data);
       handleWebSocketMessage(data);
     };
     websocketService.onMessage(handler);
     wsHandlerRef.current = handler;
-    
+
     return () => {
       websocketService.disconnect();
       if (wsHandlerRef.current) {
@@ -68,7 +71,7 @@ const GameBoard = () => {
   };
 
   const handleWebSocketMessage = (data) => {
-    switch(data.type) {
+    switch (data.type) {
       case 'game_state':
         setGame(data.data);
         break;
@@ -118,35 +121,35 @@ const GameBoard = () => {
 
   const handleDiceRolled = (data) => {
     const { dice, game_state, square_result } = data;
-    
+
     setDiceState({
       values: dice,
       isRolling: true,
       animationComplete: false
     });
-    
+
     addNotification(`🎲 Rolled ${dice.dice1} + ${dice.dice2} = ${dice.total}${dice.is_doubles ? ' 🎯 Doubles!' : ''}`, 'info');
-    
+
     const playerId = game_state?.current_player?.id;
-    
+
     if (playerId) {
       const currentPlayer = game_state?.players?.find(p => p.id === playerId);
       const startPosition = currentPlayer?.position || 0;
-      
+
       const totalSteps = dice.total || 0;
       const finalPosition = (startPosition + totalSteps) % 40;
-      
-      
+
+
       setMovingPlayers(prev => ({ ...prev, [playerId]: true }));
-      
+
       let currentPos = startPosition;
       let stepCount = 0;
-      
+
       const interval = setInterval(() => {
         if (stepCount < totalSteps) {
           currentPos = (currentPos + 1) % 40;
           stepCount++;
-          
+
           setGame(prev => {
             if (!prev) return prev;
             const updatedPlayers = prev.players.map(p => {
@@ -161,19 +164,26 @@ const GameBoard = () => {
         } else {
           clearInterval(interval);
           setMovingPlayers(prev => ({ ...prev, [playerId]: false }));
-          
+
           setGame(game_state);
-          setDiceState(prev => ({ 
-            ...prev, 
-            isRolling: false, 
-            animationComplete: true 
+          setDiceState(prev => ({
+            ...prev,
+            isRolling: false,
+            animationComplete: true
           }));
           setIsProcessing(false);
-          
+
+          setTimeout(() => {
+            if (square_result?.card) {
+              setCurrentCard(square_result.card);
+              setShowCardModal(true);
+            }
+          }, (dice.total * 400) + 500);
+
           if (square_result?.message) {
             addNotification(`📍 ${square_result.message}`, 'info');
           }
-          
+
           if (square_result?.can_buy) {
             addNotification(`🏠 ${square_result.name} is available for $${square_result.price}`, 'success');
           }
@@ -226,7 +236,7 @@ const GameBoard = () => {
     if (!window.confirm('Are you sure you want to leave this game?')) {
       return;
     }
-    
+
     try {
       await gameAPI.leave(gameId);
       navigate('/');
@@ -260,9 +270,9 @@ const GameBoard = () => {
         <h1>🎲 {game.name}</h1>
         <div className="game-status">
           <span className={`status-badge ${game.state}`}>
-            {game.state === 'WT' ? '⏳ Waiting' : 
-             game.state === 'PL' ? '🎮 Playing' : 
-             '🏁 Finished'}
+            {game.state === 'WT' ? '⏳ Waiting' :
+              game.state === 'PL' ? '🎮 Playing' :
+                '🏁 Finished'}
           </span>
           <span>Turn: {game.turn_number}</span>
           <span>Players: {game.player_count}/{game.max_players}</span>
@@ -271,7 +281,7 @@ const GameBoard = () => {
           🚪 Leave
         </button>
       </div>
-      
+
       <div className="notifications">
         {notifications.map(notif => (
           <div key={notif.id} className={`notification ${notif.type}`}>
@@ -279,16 +289,16 @@ const GameBoard = () => {
           </div>
         ))}
       </div>
-      
+
       <div className="game-content">
         <div className="game-main">
-          <Board 
-            players={game.players} 
+          <Board
+            players={game.players}
             currentPlayerIndex={game.current_player_index}
             movingPlayers={movingPlayers}
           />
-          
-          <Dice 
+
+          <Dice
             values={diceState.values}
             isRolling={diceState.isRolling}
             onRollComplete={() => {
@@ -296,13 +306,13 @@ const GameBoard = () => {
             }}
           />
         </div>
-        
+
         <div className="game-sidebar">
-          <PlayerList 
+          <PlayerList
             players={game.players}
             currentPlayerIndex={game.current_player_index}
           />
-          
+
           <GameControls
             game={game}
             isCreator={isCreator}
@@ -318,6 +328,16 @@ const GameBoard = () => {
           />
         </div>
       </div>
+      {/* ✅ Card Modal - always at the end, above everything */}
+      {showCardModal && currentCard && (
+        <CardDisplay
+          card={currentCard}
+          onClose={() => {
+            setShowCardModal(false);
+            setCurrentCard(null);
+          }}
+        />
+      )}
     </div>
   );
 };

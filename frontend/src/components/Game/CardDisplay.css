@@ -1,0 +1,129 @@
+/* frontend/src/components/Game/CardDisplay.css */
+.card-type-badge {
+  display: inline-block;
+  padding: 12px;
+  border-radius: 12px;
+  color: #666;
+  font-size: 25px;
+  color: white;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.card-amount.positive {
+  color: #4caf50;
+}
+
+.card-amount.negative {
+  color: #f44336;
+}
+
+.card-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  /* ✅ High z-index to appear above everything */
+  animation: fadeIn 0.3s ease;
+}
+
+.card-body {
+  padding: 28px 30px 30px;
+  background: #fafafa;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: center;
+  padding: 28px 30px 30px;
+}
+
+.card-modal {
+  background: white;
+  border-radius: 16px;
+  max-width: 450px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 4px solid;
+  animation: slideUp 0.3s ease;
+  position: relative;
+}
+
+.card-footer-button {
+  padding: 12px 40px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35);
+}
+
+.card-amount {
+  text-align: center;
+  font-size: 32px;
+  font-weight: 800;
+  padding: 12px 0;
+  letter-spacing: -1px;
+}
+
+.amount-positive {
+  color: #48bb78;
+  background: linear-gradient(135deg, #f0fff4, #e6fffa);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.amount-positive::before {
+  content: '🎉 ';
+  font-size: 24px;
+}
+
+.amount-negative {
+  color: #fc8181;
+  background: linear-gradient(135deg, #fff5f5, #fef2f2);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.amount-negative::before {
+  content: '💸 ';
+  font-size: 24px;
+}
+
+.card-description {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #2d3748;
+  text-align: center;
+}
+
+.card-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(4px);
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}

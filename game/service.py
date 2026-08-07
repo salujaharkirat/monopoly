@@ -3,6 +3,9 @@ import random
 
 from django.core.exceptions import ValidationError
 
+from game.constants import COMMUNITY_CHEST_CARDS
+from game.enums import CardType
+
 from .models import Game, Player, Square, Property
 from .serializer import GameDetailSerializer
 
@@ -228,11 +231,102 @@ class GameService:
       # TODO: Will implement later
     elif square.square_type == Square.SquareType.COMMUNITY_CHEST:
       result['message'] = "Community Chest card drawn"
-      # Will implement later
+      community_card_result = GameService.handle_community_card(player, game)
+      if community_card_result['success']:
+        result['card'] = community_card_result
+        result['message'] = f"📬 {community_card_result['card_name']}: {community_card_result['description']}"
+        if community_card_result.get('amount'):
+            result['message'] += f" (${community_card_result['amount']})"
+      else:
+        result['message'] = f"📬 Community Chest: {community_card_result['message']}"
     elif square.square_type in [Square.SquareType.RAILROAD, Square.SquareType.UTILITY]:
       result['message'] = f"Landed on {square.name}"
       # Will implement later
 
+    return result
+
+  @staticmethod
+  def handle_community_card(player, game):
+    card = random.choice(COMMUNITY_CHEST_CARDS)
+    result = GameService.process_community_card(player, game, card)
+
+    return {
+      'success': True,
+      'card_name': card['name'],
+      'description': card['description'],
+      'type': card['type'],
+      'amount': result.get('amount', 0),
+      'message': result.get('message', ''),
+      'card': card
+    }
+
+  @staticmethod
+  def process_community_card(player,game, card):
+    type = card.get('type')
+    amount = card.get('amount', 0)
+    result = {'amount': 0, 'message': ''}
+
+    if type == CardType.COLLECT_MONEY:
+      player.money += amount
+      player.save()
+      result['amount'] = player.money
+      result['message'] = f"Collected ${amount}"
+    elif type == CardType.PAY_MONEY:
+      if player.money < amount:
+        return {
+            'amount': 0,
+            'message': f"Not enough money to pay ${amount}"
+        }
+      player.money -= amount
+      player.save()
+      result['amount'] = player.money
+      result['message'] = f"Paid ${amount}"
+    elif type == CardType.ADVANCE_TO_GO:
+      player.position = 0
+      player.money += 200
+      player.save()
+      result['amount'] = 200
+      result['message'] = "Advanced to GO and collected $200"
+    elif type == CardType.GO_TO_JAIL:
+      player.position = 10
+      player.is_in_jail = True
+      player.save()
+      result['message'] = "Go to Jail!"
+    elif type == CardType.COLLECT_FROM_ALL:
+      total_collected = 0
+      for p in game.players.all():
+        if p.id != player.id:
+          if p.money >= amount:
+            p.money -= amount
+            total_collected += amount
+            p.save()
+          else:
+            total_collected += p.money
+            p.money = 0
+            p.save()
+
+      player.money += total_collected
+      player.save()
+      result['amount'] = total_collected
+      result['message'] = f'Collected ${total_collected} from other players'
+
+    elif type == CardType.STREET_REPAIRS:
+      total_cost = 0
+      for property in player.properties.all():
+        total_cost += property.houses * 40 + property.hotels * 115
+
+      if player.money < total_cost:
+        return {
+          'amount': 0,
+          'message': f"Not enough money for street repairs (${total_cost})"
+        }
+
+      player.money -= total_cost
+      player.save()
+      result['amount'] = total_cost
+      result['message'] = f"Paid ${total_cost} for street repairs"
+
+    print("here...", result)
     return result
 
   @staticmethod

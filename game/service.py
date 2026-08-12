@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 
 from game.constants import CHANCE_CARDS, COMMUNITY_CHEST_CARDS
 from game.enums import CardType
+from game.strategies.card_strategy import CardStrategyFactory
 
 from .models import Game, Player, Square, Property
 from .serializer import GameDetailSerializer
@@ -254,222 +255,22 @@ class GameService:
   @staticmethod
   def handle_chance_card(player, game):
     card = random.choice(CHANCE_CARDS)
-    result = GameService.process_chance_card(player, game, card)
+    card_type = card.get('type')
+    strategy = CardStrategyFactory.get_strategy(card_type)
+    result = strategy.execute(player, game, card)
+    result['success'] = True
+    result['card'] = card
 
-    return {
-      'success': True,
-      'card_name': card['name'],
-      'description': card['description'],
-      'type': card['type'],
-      'amount': result.get('amount', 0),
-      'message': result.get('message', ''),
-      'card': card,
-      'position': result.get('position'),
-      'spaces': result.get('spaces')
-    }
-
-  @staticmethod
-  def process_chance_card(player, game, card):
-    type = card.get('type')
-    amount = card.get('amount', 0)
-    result = {'amount': 0, 'message': ''}
-
-    if type == CardType.COLLECT_MONEY:
-      player.money = card.get('amount', 0)
-      player.save()
-      result['amount'] = amount
-      result['message'] = f"Collected ${amount}"
-
-    if type == CardType.PAY_MONEY:
-      amount = card.get('amount', 0)
-      if player.money < amount:
-          return {
-            'amount': 0,
-            'message': f"Not enough money to pay ${amount}"
-          }
-      player.money -= amount
-      player.save()
-      result['amount'] = amount
-      result['message'] = f"Paid ${amount}"
-
-    if type == CardType.ADVANCE_TO_GO:
-      player.position = 0
-      player.money += 200
-      player.save()
-      result['amount'] = 200
-      result['message'] = "Advanced to GO and collected $200"
-
-    if type == CardType.ADVANCE_TO_PROPERTY:
-      target_position = card.get('position', 0)
-      property_name = card.get('property_name')
-
-      old_position = player.position
-      player.position = target_position
-      player.save()
-
-      if target_position < old_position:
-        player.money += 200
-        player.save()
-        result['amount'] = 200
-        result['message'] = f"Moved to {property_name} and collected $200 for passing GO"
-      else:
-        result['message'] = f"Moved to {property_name}"
-
-      result["new_position"] = target_position
-      result['property_name'] = property_name
-
-      property = Property.objects.get(square__position=target_position, game=game)
-      if property.owner:
-        if property.owner.id != player.id:
-          rent = property.square.rent or 0
-          if property.houses > 0:
-            rent = (property.houses) * rent
-            if property.hotels > 0:
-              rent += (property.hotels) * rent
-
-          if player.money < rent:
-            return {
-              'amount': 0,
-              'message': f"Not enough money to pay ${rent} rent on {property_name}"
-            }
-
-          player.money -= rent
-          property.owner.money += rent
-          property.owner.save()
-          player.save()
-          result['amount'] = rent
-          result['message'] += f" - Paid ${rent} rent to {property.owner.user.username}"
-      else:
-        result['can_buy'] = True
-        result['price'] = property.square.price
-        result['property_id'] = property.id
-
-    if type == CardType.MOVE_BACK:
-      new_position = (player.position - card.get('spaces')) % 40
-      player.position = new_position
-      player.save()
-    if type == CardType.GO_TO_JAIL:
-      player.position = 10
-      player.is_in_jail = True
-      player.save()
-      result['message'] = "Go to Jail!"    
-    if type == CardType.GENERAL_REPAIRS:
-      total_cost = 0
-      for property in player.properties.all():
-        total_cost += property.houses * card.get('house_cost', 0)
-        total_cost += property.hotels * card.get('hotel_cost', 0)
-      if player.money < total_cost:
-        return {
-          'amount': 0,
-          'message': f"Not enough money for general repairs (${total_cost})"
-        }
-    if type == CardType.PAY_EACH_PLAYER:
-      amount = card.get('amount')
-      total_paid = 0
-      for p in game.players.all():
-        if player.id != p.id:
-          if player.money >= amount:
-            player.money -= amount
-            p.money += amount
-            total_paid += amount
-            p.save()
-            player.save()
-          else:
-            p.money += player.money
-            total_paid += player.money
-            player.money = 0
-            p.save()
-            player.save()
-
-      result['amount'] = total_paid
-      result['message'] = f"Paid ${total_paid} total to other players"
-      result['paid_to'] = [p.user.username for p in game.players.all() if p.id != player.id]
-    return result        
-        
-
+    return result
     
   @staticmethod
   def handle_community_card(player, game):
     card = random.choice(COMMUNITY_CHEST_CARDS)
-    result = GameService.process_community_card(player, game, card)
-
-    return {
-      'success': True,
-      'card_name': card['name'],
-      'description': card['description'],
-      'type': card['type'],
-      'amount': result.get('amount', 0),
-      'message': result.get('message', ''),
-      'card': card
-    }
-
-  @staticmethod
-  def process_community_card(player,game, card):
-    type = card.get('type')
-    amount = card.get('amount', 0)
-    result = {'amount': 0, 'message': ''}
-
-    if type == CardType.COLLECT_MONEY:
-      player.money += amount
-      player.save()
-      result['amount'] = player.money
-      result['message'] = f"Collected ${amount}"
-    elif type == CardType.PAY_MONEY:
-      if player.money < amount:
-        return {
-            'amount': 0,
-            'message': f"Not enough money to pay ${amount}"
-        }
-      player.money -= amount
-      player.save()
-      result['amount'] = player.money
-      result['message'] = f"Paid ${amount}"
-    elif type == CardType.ADVANCE_TO_GO:
-      player.position = 0
-      player.money += 200
-      player.save()
-      result['amount'] = 200
-      result['message'] = "Advanced to GO and collected $200"
-    elif type == CardType.GO_TO_JAIL:
-      player.position = 10
-      player.is_in_jail = True
-      player.save()
-      result['message'] = "Go to Jail!"
-    elif type == CardType.COLLECT_FROM_ALL:
-      total_collected = 0
-      for p in game.players.all():
-        if p.id != player.id:
-          if p.money >= amount:
-            p.money -= amount
-            total_collected += amount
-            p.save()
-          else:
-            total_collected += p.money
-            p.money = 0
-            p.save()
-
-      player.money += total_collected
-      player.save()
-      result['amount'] = total_collected
-      result['message'] = f'Collected ${total_collected} from other players'
-
-    elif type == CardType.STREET_REPAIRS:
-      total_cost = 0
-      for property in player.properties.all():
-        total_cost += property.houses * 40 + property.hotels * 115
-
-      if player.money < total_cost:
-        return {
-          'amount': 0,
-          'message': f"Not enough money for street repairs (${total_cost})"
-        }
-
-      player.money -= total_cost
-      player.save()
-      result['amount'] = total_cost
-      result['message'] = f"Paid ${total_cost} for street repairs"
-
-    print("here...", result)
+    card_type = card.get('type')
+    strategy = CardStrategyFactory.get_strategy(card_type)
+    result = strategy.execute(player, game, card)
+    result['success'] = True
+    result['card'] = card
     return result
 
   @staticmethod

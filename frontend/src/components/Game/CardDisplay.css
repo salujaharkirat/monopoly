@@ -1,79 +1,188 @@
 /* frontend/src/components/Game/CardDisplay.css */
-.card-type-badge {
-  display: inline-block;
-  padding: 12px;
-  border-radius: 12px;
-  color: #666;
-  font-size: 25px;
-  color: white;
-  font-weight: 600;
-  margin-bottom: 10px;
-}
 
-.card-amount.positive {
-  color: #4caf50;
-}
-
-.card-amount.negative {
-  color: #f44336;
-}
-
+/* ===== OVERLAY ===== */
 .card-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  /* ✅ High z-index to appear above everything */
-  animation: fadeIn 0.3s ease;
+  animation: overlayFadeIn 0.4s ease;
 }
 
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* ===== CARD MODAL ===== */
+.card-modal {
+  background: white;
+  border-radius: 20px;
+  max-width: 440px;
+  width: 92%;
+  overflow: hidden;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.4),
+    0 0 0 2px rgba(255, 255, 255, 0.1) inset;
+  transform: scale(0.9) translateY(30px);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+.card-modal.visible {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+/* ===== CARD HEADER ===== */
+.card-header {
+  padding: 28px 30px 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-header::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 60%;
+  height: 200%;
+  background: rgba(255, 255, 255, 0.1);
+  transform: rotate(15deg);
+  pointer-events: none;
+}
+
+.card-header::after {
+  content: '✦';
+  position: absolute;
+  bottom: 10px;
+  right: 20px;
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.15);
+  animation: sparkle 3s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(1) rotate(0deg);
+  }
+
+  50% {
+    opacity: 0.4;
+    transform: scale(1.2) rotate(20deg);
+  }
+}
+
+.card-header-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.card-type-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
+  animation: iconBounce 2s ease-in-out infinite;
+}
+
+@keyframes iconBounce {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.card-header-text {
+  flex: 1;
+}
+
+.card-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(4px);
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.card-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.card-drawn-by {
+  display: inline-block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 12px;
+  border-radius: 12px;
+  margin-top: 4px;
+}
+
+.card-drawn-by strong {
+  color: white;
+}
+
+/* ===== CARD BODY ===== */
 .card-body {
   padding: 28px 30px 30px;
   background: #fafafa;
 }
 
-.card-footer {
-  display: flex;
-  justify-content: center;
-  padding: 28px 30px 30px;
-}
-
-.card-modal {
+.card-description-wrapper {
   background: white;
-  border-radius: 16px;
-  max-width: 450px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  border: 4px solid;
-  animation: slideUp 0.3s ease;
-  position: relative;
-}
-
-.card-footer-button {
-  padding: 12px 40px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border: none;
+  padding: 18px 20px;
   border-radius: 12px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  letter-spacing: 0.3px;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
+  margin-bottom: 20px;
 }
 
+.card-description {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #2d3748;
+  text-align: center;
+}
+
+/* ===== AMOUNT DISPLAY ===== */
 .card-amount {
   text-align: center;
   font-size: 32px;
@@ -106,24 +215,361 @@
   font-size: 24px;
 }
 
-.card-description {
-  margin: 0;
-  font-size: 16px;
-  line-height: 1.6;
-  color: #2d3748;
-  text-align: center;
+/* ===== POSITION CHANGE ===== */
+.card-position-change {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #ebf8ff, #e6f2ff);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 1px solid #bee3f8;
 }
 
-.card-badge {
-  display: inline-block;
-  padding: 3px 12px;
-  background: rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(4px);
-  border-radius: 12px;
+.position-change-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.position-change-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.position-label {
   font-size: 11px;
+  color: #2b6cb0;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  letter-spacing: 0.5px;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+}
+
+.position-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c5282;
+}
+
+/* ===== PROPERTY BUY ===== */
+.card-property-buy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #f0fff4, #e6fffa);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 2px solid #48bb78;
+  animation: buyPulse 2s ease-in-out infinite;
+}
+
+@keyframes buyPulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(72, 187, 120, 0);
+  }
+}
+
+.buy-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.buy-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.buy-label {
+  font-size: 11px;
+  color: #276749;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.buy-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #22543d;
+}
+
+/* ===== BANKRUPT ===== */
+.card-bankrupt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #fff5f5, #fef2f2);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 2px solid #fc8181;
+  animation: bankruptShake 0.5s ease-in-out 3;
+}
+
+@keyframes bankruptShake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-5px);
+  }
+
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+.bankrupt-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.bankrupt-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.bankrupt-label {
+  font-size: 14px;
+  color: #c53030;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.bankrupt-message {
+  font-size: 13px;
+  color: #742a2a;
+}
+
+/* ===== CARD FOOTER ===== */
+.card-footer-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.card-actions-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.card-close-btn {
+  padding: 12px 40px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35);
+  flex: 1;
+  justify-content: center;
+}
+
+.card-close-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.45);
+}
+
+.card-close-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.card-buy-btn {
+  padding: 12px 30px;
+  background: linear-gradient(135deg, #48bb78, #38a169);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 15px rgba(72, 187, 120, 0.35);
+  flex: 1;
+}
+
+.card-buy-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(72, 187, 120, 0.45);
+}
+
+.card-buy-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-arrow {
+  transition: transform 0.3s ease;
+  display: inline-block;
+}
+
+.card-close-btn:hover .btn-arrow {
+  transform: translateX(4px);
+}
+
+/* ===== DECORATIVE CORNERS ===== */
+.card-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+}
+
+.card-corner-tl {
+  top: 12px;
+  left: 12px;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 4px 0 0 0;
+}
+
+.card-corner-tr {
+  top: 12px;
+  right: 12px;
+  border-left: 0;
+  border-bottom: 0;
+  border-radius: 0 4px 0 0;
+}
+
+.card-corner-bl {
+  bottom: 12px;
+  left: 12px;
+  border-right: 0;
+  border-top: 0;
+  border-radius: 0 0 0 4px;
+}
+
+.card-corner-br {
+  bottom: 12px;
+  right: 12px;
+  border-left: 0;
+  border-top: 0;
+  border-radius: 0 0 4px 0;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 480px) {
+  .card-modal {
+    max-width: 95%;
+    border-radius: 16px;
+  }
+
+  .card-header {
+    padding: 20px 20px 16px;
+  }
+
+  .card-header h2 {
+    font-size: 18px;
+  }
+
+  .card-type-icon {
+    font-size: 28px;
+  }
+
+  .card-body {
+    padding: 20px;
+  }
+
+  .card-description {
+    font-size: 14px;
+  }
+
+  .card-amount {
+    font-size: 26px;
+  }
+
+  .card-close-btn,
+  .card-buy-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+
+  .card-corner {
+    display: none;
+  }
+
+  .card-actions-row {
+    flex-direction: column;
+  }
+}
+
+/* ===== DARK MODE SUPPORT ===== */
+@media (prefers-color-scheme: dark) {
+  .card-modal {
+    background: #1a202c;
+  }
+
+  .card-body {
+    background: #2d3748;
+  }
+
+  .card-description-wrapper {
+    background: #1a202c;
+    border-color: #4a5568;
+  }
+
+  .card-description {
+    color: #e2e8f0;
+  }
+
+  .card-close-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+  }
+
+  .card-position-change {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+
+  .position-label {
+    color: #63b3ed;
+  }
+
+  .position-value {
+    color: #bee3f8;
+  }
+
+  .card-property-buy {
+    background: #2d3748;
+    border-color: #48bb78;
+  }
+
+  .buy-label {
+    color: #48bb78;
+  }
+
+  .buy-price {
+    color: #68d391;
+  }
+
+  .card-bankrupt {
+    background: #2d3748;
+    border-color: #fc8181;
+  }
+
+  .bankrupt-label {
+    color: #fc8181;
+  }
+
+  .bankrupt-message {
+    color: #feb2b2;
+  }
 }

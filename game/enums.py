@@ -18,3 +18,12 @@ class CardType(models.TextChoices):
     GET_OUT_OF_JAIL = 'GET_OUT_OF_JAIL'
     STREET_REPAIRS = 'STREET_REPAIRS'
     GENERAL_REPAIRS = 'GENERAL_REPAIRS'
+
+class SquareType(models.TextChoices):
+    GO = "GO"
+    PROPERTY = "PROPERTY"
+    TAX = "TAX"
+    GO_TO_JAIL = "GO_TO_JAIL"
+    CHANCE = "CHANCE"
+    COMMUNITY_CHEST = "COMMUNITY_CHEST"
+    

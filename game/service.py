@@ -2,10 +2,7 @@ import logging
 import random
 
 from django.core.exceptions import ValidationError
-
-from game.constants import CHANCE_CARDS, COMMUNITY_CHEST_CARDS
-from game.enums import CardType
-from game.strategies.card_strategy import CardStrategyFactory
+from game.strategies.square_strategy import SquareStrategyFactory
 
 from .models import Game, Player, Square, Property
 from .serializer import GameDetailSerializer
@@ -195,82 +192,9 @@ class GameService:
       'message': ''
     }
 
-    if square.square_type == Square.SquareType.GO:
-      result['message'] = f"{player.user.username} collected $200"
-    elif square.square_type == Square.SquareType.PROPERTY:
-      try:
-        property_obj = square.property
-        if property_obj.owner:
-          if property_obj.owner.id != player.id:
-            rent = square.rent or 0
-            player.money -= rent
-            property_obj.owner.money += rent
-            player.save()
-            property_obj.owner.save()
-            result['message'] = f"Paid ${rent} rent to {property_obj.owner.user.username}"
-          else:
-            result['message'] = f"Owned by {player.user.username}"
-        else:
-          result['message'] = f"Property available for ${square.price}"
-          result['can_buy'] = True
-          result['price'] = square.price
-      except:
-        result['message'] = 'Property not available'
-    elif square.square_type == Square.SquareType.TAX:
-      tax_amount = square.tax_amount or 100
-      player.money -= tax_amount
-      player.save()
-      result['message'] = f"Paid ${tax_amount} in taxes"
-    elif square.square_type == Square.SquareType.GO_TO_JAIL:
-      player.position = 10
-      player.is_in_jail = True
-      player.save()
-      result['message'] = "Go to Jail!"
-      pass
-    elif square.square_type == Square.SquareType.CHANCE:
-      result['message'] = "Chance card drawn"
-      chance_card_result = GameService.handle_chance_card(player, game)
-      if chance_card_result['success']:
-        result['card'] = chance_card_result
-        result['message'] = f"📬 {chance_card_result['card_name']}: {chance_card_result['description']}"
-        if chance_card_result.get('amount'):
-          result['message'] += f" (${chance_card_result['amount']})"
-      else:
-        result['message'] = f"📬 Chance: {chance_card_result['message']}"
-    elif square.square_type == Square.SquareType.COMMUNITY_CHEST:
-      result['message'] = "Community Chest card drawn"
-      community_card_result = GameService.handle_community_card(player, game)
-      if community_card_result['success']:
-        result['card'] = community_card_result
-        result['message'] = f"📬 {community_card_result['card_name']}: {community_card_result['description']}"
-        if community_card_result.get('amount'):
-            result['message'] += f" (${community_card_result['amount']})"
-      else:
-        result['message'] = f"📬 Community Chest: {community_card_result['message']}"
-    elif square.square_type in [Square.SquareType.RAILROAD, Square.SquareType.UTILITY]:
-      result['message'] = f"Landed on {square.name}"
+    strategy = SquareStrategyFactory.get_strategy(square.type)
+    strategy_result = strategy.execute(player, square, game)
 
-    return result
-
-  @staticmethod
-  def handle_chance_card(player, game):
-    card = random.choice(CHANCE_CARDS)
-    card_type = card.get('type')
-    strategy = CardStrategyFactory.get_strategy(card_type)
-    result = strategy.execute(player, game, card)
-    result['success'] = True
-    result['card'] = card
-
-    return result
-    
-  @staticmethod
-  def handle_community_card(player, game):
-    card = random.choice(COMMUNITY_CHEST_CARDS)
-    card_type = card.get('type')
-    strategy = CardStrategyFactory.get_strategy(card_type)
-    result = strategy.execute(player, game, card)
-    result['success'] = True
-    result['card'] = card
     return result
 
   @staticmethod

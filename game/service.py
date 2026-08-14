@@ -157,7 +157,7 @@ class GameService:
         }
       
       if not is_doubles:
-        # game.next_turn()
+        game.next_turn()
         game.save()
       
       game_state = GameDetailSerializer(game).data

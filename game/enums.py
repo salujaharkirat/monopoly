@@ -26,4 +26,5 @@ class SquareType(models.TextChoices):
     GO_TO_JAIL = "GO_TO_JAIL"
     CHANCE = "CHANCE"
     COMMUNITY_CHEST = "COMMUNITY_CHEST"
+    RAIL_ROAD="RAIL_ROAD"
     

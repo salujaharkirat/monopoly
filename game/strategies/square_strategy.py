@@ -1,4 +1,5 @@
 from abc import ABC
+from game.rent_calculator import RentCalculator
 from models import Player, Square, Game, Property
 import random
 
@@ -21,7 +22,11 @@ class PropertySquareStrategy(SquareStrategy):
     property = Property.objects.get(square=square)
     if property.owner:
       if property.owner.id != player.id:
-        rent = square.rent or 0
+        rent = RentCalculator.calculate_rent(game, property)
+        if player.money < rent:
+          return {
+            'message': f"Cannot pay ${rent} for player {player.user.username}"
+          }
         player.money -= rent
         property.owner.money += rent
         player.save()
@@ -116,6 +121,7 @@ class SquareStrategyFactory:
     SquareType.GO_TO_JAIL: GoToJailSquareStrategy(),
     SquareType.CHANCE: ChanceSquareStrategy(),
     SquareType.COMMUNITY_CHEST: CommunityChestSquareStrategy(),
+    SquareType.RAIL_ROAD: PropertySquareStrategy(),
   }
 
   @classmethod

@@ -195,7 +195,7 @@ class GameService:
     strategy = SquareStrategyFactory.get_strategy(square.type)
     strategy_result = strategy.execute(player, square, game)
 
-    return result
+    return {**result, **strategy_result}
 
   @staticmethod
   def buy_property(game_id, player_id, property_id):
@@ -351,8 +351,9 @@ class GameService:
       game.players.remove(player)
       if game.created_by.id == player_id and game.players.exists():
         new_creator = game.players.first()
-        game.created_by = new_creator
-        game.save()
+        if new_creator:
+          game.created_by = new_creator
+          game.save()
       
       if game.state == Game.GameState.WAITING:
         if game.players.count() == 0:

@@ -13,10 +13,10 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 | Game APIs | ✅ Complete | 100% |
 | WebSocket Setup | ✅ Complete | 100% |
 | React Frontend | ✅ Complete | 100% |
-| Game Board & UI | 🔄 In Progress | 95% |
-| Core Game Logic | ⏳ Pending | 90% |
+| Game Board & UI |  ✅ Complete | 95% |
+| Core Game Logic | ✅ Complete | 100% |
+| Special Squares | 🔄 In Progress | 80% |
 | Property Management | ⏳ Pending | 0% |
-| Special Squares | ⏳ Pending | 0% |
 | Advanced Features | ⏳ Pending | 0% |
 | Polish & Deploy | ⏳ Pending | 0% |
 

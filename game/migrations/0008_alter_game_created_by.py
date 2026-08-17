@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='game',
             name='created_by',
-            field=models.ForeignKey(blank=True, default='test', on_delete=django.db.models.deletion.PROTECT, related_name='created_games', to='game.player'),
+            field=models.ForeignKey(blank=True, default=1, on_delete=django.db.models.deletion.PROTECT, related_name='created_games', to='game.player'),
             preserve_default=False,
         ),
     ]

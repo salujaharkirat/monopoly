@@ -13,7 +13,7 @@ class RentCalculator:
       return 0
 
     if square.square_type == SquareType.PROPERTY:
-      return RentCalculator._calculate_property_rent(square)
+      return RentCalculator._calculate_property_rent(square, game, property)
 
     if square.square_type == SquareType.RAIL_ROAD:
       return RentCalculator._calculate_rail_road_rent(game, property)
@@ -24,8 +24,19 @@ class RentCalculator:
     return 0
 
   @staticmethod
-  def _calculate_property_rent(square: Square):
-    return square.rent or 0 
+  def _calculate_property_rent(square: Square, property: Property):
+    houses = property.houses
+    base_rent = square.rent or 0
+    rent_tiers = {
+      0: base_rent,
+      1: 5 * base_rent,
+      2: 15 * base_rent,
+      3: 35 * base_rent,
+      4: 50 * base_rent,
+      5: 60 * base_rent
+    }
+
+    return rent_tiers.get(houses)
 
   @staticmethod
   def _calculate_rail_road_rent(game: Game, property: Property):

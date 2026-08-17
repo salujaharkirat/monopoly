@@ -3,7 +3,7 @@ from models import Game, Property, Square
 
 class RentCalculator:
   @staticmethod
-  def calculate_rent(game: Game, property: Property):
+  def calculate_rent(game: Game, property: Property, dice_roll: int = 0):
     square = property.square
 
     if not square:
@@ -17,6 +17,9 @@ class RentCalculator:
 
     if square.square_type == SquareType.RAIL_ROAD:
       return RentCalculator._calculate_rail_road_rent(game, property)
+
+    if square.square_type == SquareType.UTILITY:
+      return RentCalculator._calculate_utility_rent(game, property, dice_roll)
 
     return 0
 
@@ -37,4 +40,17 @@ class RentCalculator:
       return baseRent * (number_of_properties)
 
     return baseRent
+
+  @staticmethod
+  def _calculate_utility_rent(game: Game, property: Property, dice_roll: int):
+    number_of_properties = Property.objects.filter(
+      owner = property.owner,
+      square_square_type = Square.SquareType.UTILITY,
+      game=game,
+    ).count()
+
+    if number_of_properties == 1:
+      return dice_roll * 4
+
+    return dice_roll * 10
   

@@ -45,7 +45,7 @@ class Game(models.Model):
   turn_number = models.IntegerField(default=0)
   created_at = models.DateTimeField(auto_now_add=True)
   updated_at = models.DateTimeField(auto_now=True)
-  created_by = models.ForeignKey(Player,  on_delete=models.PROTECT, related_name='created_games',         null=True,  # Allow null temporarily
+  created_by = models.ForeignKey(Player,  on_delete=models.PROTECT, related_name='created_games',         null=False,  # Allow null temporarily
         blank=True)  # Allow blank in forms)
 
   def can_join(self, player):

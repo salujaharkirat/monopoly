@@ -90,9 +90,9 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 
 - [x]  Chance cards (16 cards)
 - [x]  Community Chest cards (16 cards)
+- [x]  Railroads (4, rent multiplies)
+- [x]  Utilities (Electric, Water)
 - [ ]  Complete jail system (bail, doubles, 3 turns)
-- [ ]  Railroads (4, rent multiplies)
-- [ ]  Utilities (Electric, Water)
 - [ ]  Free Parking
 
 ## **Phase 10: Advanced Features ⏳**

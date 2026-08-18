@@ -127,6 +127,7 @@ class Square(models.Model):
   price = models.IntegerField(null=True, blank=True)
   rent = models.IntegerField(null=True, blank=True)
   tax_amount = models.IntegerField(null=True, blank=True)
+  house_cost = models.IntegerField(null=True, blank=True)
 
   def __str__(self):
      return f"{self.position}: {self.name}"

@@ -6,7 +6,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from rest_framework.authtoken.models import Token
 from game.db_utils import DbUtils
-from game.webhook_events.events import EventBus
+from game.websocket_events.events import EventBus
 
 logger = logging.getLogger(__name__)
 

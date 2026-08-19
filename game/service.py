@@ -323,6 +323,116 @@ class GameService:
       return {'success': False, 'message': str(e)}
 
   @staticmethod
+  def build_house(game_id, player_id, property_id, number_of_houses):
+    try:
+      player = Player.objects.get(id=player_id)
+      game = Game.objects.get(id=game_id)
+      property = Property.objects.select_related('square', 'owner', 'square__color_group').get(id=property_id, game=game)
+      construction_cost = 0
+
+      if property.square.square_type not in [Square.SquareType.PROPERTY]:
+        return {
+            'success': False,
+            'message': f"Cannot build on {property.square.name} (not a property)"
+        }
+
+      if number_of_houses > 5 or number_of_houses < 1:
+        return {
+          'success': False,
+          'message': f"Pass the number of houses to construct in range"
+        }
+
+      if property.owner.id != player.id:
+        return {
+          'success': False,
+          'message': f"Player {player.user.username} does not own {property.square.name}"
+        }
+
+      color_group = property.square.color_group
+
+      if color_group:
+        owned_in_group = Property.objects.filter(
+            owner=player,
+            square__color_group=color_group,
+            game=game
+        ).count()
+        total_in_group = Property.objects.filter(
+            square__color_group=color_group,
+            game=game
+        ).count()
+
+        if total_in_group != owned_in_group:
+          return {
+            'success': False,
+            'message': f"Must own all {color_group.name} properties to build on {property.square.name}"
+          }
+
+      if property.houses + number_of_houses > 5:
+        return {
+          'success': False,
+          'message': f"Cannot have more than 5 houses/hotel on {property.square.name} (current: {property.houses})"
+        }
+
+      if property.square:
+        construction_cost = property.square.house_cost * number_of_houses
+
+      if player.money < construction_cost:
+        return {
+          'success': False,
+          'message': f"Player {player.user.username} does not have ${construction_cost} to make {number_of_houses} houses"
+        }
+
+      if not GameService.can_evenly_construct(color_group, game, property, player, number_of_houses):
+        return {
+          'success': False,
+          'message': f"Cannot construct {number_of_houses} evenly on {property.square.name}"
+        }
+
+      player.money -= construction_cost
+      property.houses += number_of_houses
+      player.save()
+      property.save()
+
+      return {
+        'success': True,
+        'message': f"Player {player.user.username} constructed {number_of_houses} on property {property.square.name}"
+      }
+      
+    except Game.DoesNotExist:
+      return {'success': False, 'message': 'Game not found'}
+    except Player.DoesNotExist:
+      return {'success': False, 'message': 'Player not found'}
+    except Property.DoesNotExist:
+      return {'success': False, 'message': 'Property not found'}
+    except Exception as e:
+      return {'success': False, 'message': str(e)}
+
+  @staticmethod
+  def can_evenly_construct(color_group, game, property, player, number_of_houses):
+    if not color_group:
+      return False
+
+    properties = Property.objects.filter(
+      square__color_group=color_group,
+      game=game,
+      owner=player
+    ).exclude(id=property.id)
+
+    if not properties.exists():
+      return False
+
+    min_count = min([p.houses for p in properties])
+    max_count = max([p.houses for p in properties])
+
+    if property.houses > min_count:
+      return False
+
+    if number_of_houses + property.houses > max_count:
+      return False
+
+    return True
+
+  @staticmethod
   def leave_game(game_id, player_id):
     try:
       game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)

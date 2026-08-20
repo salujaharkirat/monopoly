@@ -3,10 +3,8 @@ import json
 import logging
 
 from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.db import database_sync_to_async
-from rest_framework.authtoken.models import Token
 from game.db_utils import DbUtils
-from game.websocket_events.events import EventBus
+from game.handlers.events import get_handler
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +73,15 @@ class GameConsumer(AsyncWebsocketConsumer):
             data = json.loads(text_data)
             action = data.get('action')
             data['user'] = self.user
+            data['game_id'] = self.game_id
 
-            await EventBus.publish(self, action, data)
+            print("reached here", self.user, action)
+            handler = get_handler(action)
+
+            if handler:
+                await handler(self, data)
+            else:
+                await self.send_error(f"Unkown action {action}")
                 
         except json.JSONDecodeError:
             await self.send_error("Invalid JSON")

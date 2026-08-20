@@ -1,6 +1,6 @@
 from abc import ABC
-from models import Player, Square, Game, Property
-from enums import CardType
+from game.models import Player, Square, Game, Property
+from game.enums import CardType
 
 
 class CardStrategy(ABC):

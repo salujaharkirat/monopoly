@@ -1,5 +1,5 @@
 from game.enums import SquareType
-from models import Game, Property, Square
+from game.models import Game, Property, Square
 
 class RentCalculator:
   @staticmethod

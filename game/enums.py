@@ -20,13 +20,15 @@ class CardType(models.TextChoices):
     GENERAL_REPAIRS = 'GENERAL_REPAIRS'
 
 class SquareType(models.TextChoices):
-    GO = "GO"
-    PROPERTY = "PROPERTY"
-    TAX = "TAX"
-    GO_TO_JAIL = "GO_TO_JAIL"
-    CHANCE = "CHANCE"
-    COMMUNITY_CHEST = "COMMUNITY_CHEST"
-    RAIL_ROAD="RAIL_ROAD"
-    UTILITY="UTILITY"
+    GO = 'GO', 'Go'
+    PROPERTY = 'PR', 'Property'
+    JAIL = 'JA', 'Jail'
+    FREE_PARKING = 'FP', 'Free Parking'
+    GO_TO_JAIL = 'GJ', 'Go to Jail'
+    CHANCE = 'CH', 'Chance'
+    COMMUNITY_CHEST = 'CC', 'Community Chest'
+    TAX = 'TA', 'Tax'
+    RAILROAD = 'RR', 'Railroad'
+    UTILITY = 'UT', 'Utility'
 
     

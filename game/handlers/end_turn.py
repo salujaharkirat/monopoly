@@ -1,9 +1,7 @@
-from events import EventBus
-from db_utils import DbUtils
-from service import GameService
+from game.db_utils import DbUtils
+from game.service import GameService
 from channels.db import database_sync_to_async
 
-@EventBus.subscribe('end_turn')
 async def handle_end_turn(consumer, data: dict):
   try:
     game = await DbUtils.get_game(data.get('game_id'))

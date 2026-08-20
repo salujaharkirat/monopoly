@@ -1,11 +1,10 @@
-from events import EventBus
-from db_utils import DbUtils
-from service import GameService
+from game.db_utils import DbUtils
+from game.service import GameService
 from channels.db import database_sync_to_async
 
-@EventBus.subscribe('roll_dice')
 async def handle_roll_dice(consumer, data: dict):
   try:
+    print("inside roll dice", data)
     game_id = data.get('game_id')
     player = await DbUtils.get_player(data.get('user'))
     game = await DbUtils.get_game(game_id)

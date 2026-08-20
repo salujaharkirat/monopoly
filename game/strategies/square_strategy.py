@@ -1,11 +1,11 @@
 from abc import ABC
 from game.rent_calculator import RentCalculator
-from models import Player, Square, Game, Property
+from game.models import Player, Square, Game, Property
 import random
 
-from constants import CHANCE_CARDS, COMMUNITY_CHEST_CARDS
-from strategies.card_strategy import CardStrategyFactory
-from enums import SquareType
+from game.constants import CHANCE_CARDS, COMMUNITY_CHEST_CARDS
+from game.strategies.card_strategy import CardStrategyFactory
+from game.enums import SquareType
 
 class SquareStrategy(ABC):
   def execute(self, player: Player, square: Square, game: Game):
@@ -121,11 +121,12 @@ class SquareStrategyFactory:
     SquareType.GO_TO_JAIL: GoToJailSquareStrategy(),
     SquareType.CHANCE: ChanceSquareStrategy(),
     SquareType.COMMUNITY_CHEST: CommunityChestSquareStrategy(),
-    SquareType.RAIL_ROAD: PropertySquareStrategy(),
+    SquareType.RAILROAD: PropertySquareStrategy(),
   }
 
   @classmethod
   def get_strategy(cls, type):
+    print("inside strategy", type)
     strategy = cls._strategies.get(type)
     if not strategy:
       raise ValueError(f"strategy not found ${strategy}")

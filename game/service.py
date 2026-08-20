@@ -192,7 +192,7 @@ class GameService:
       'message': ''
     }
 
-    strategy = SquareStrategyFactory.get_strategy(square.type)
+    strategy = SquareStrategyFactory.get_strategy(square.square_type)
     strategy_result = strategy.execute(player, square, game)
 
     return {**result, **strategy_result}

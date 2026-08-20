@@ -1,20 +1,17 @@
-from events import EventBus
-from db_utils import DbUtils
-from service import GameService
+from game.db_utils import DbUtils
 from channels.db import database_sync_to_async
+from game.service import GameService
 
-@EventBus.subscribe('buy_property')
-async def handle_buy_property(consumer, data: dict):
+async def handle_build_house(consumer, data: dict):
   try:
     property_id = data.get('property_id')
     player = await DbUtils.get_player(data.get('user'))
-    result = await buy_property_async(data.get('game_id'), player.id, property_id)
+    result = await build_house_async(data.get('game_id'), player.id, property_id, data.get('number_of_houses'))
 
     if not result['success']:
       await consumer.send_error(result['message'])
       return
 
-    
     # Get updated game state
     game_state = await DbUtils.get_game_state(data.get('game_id'))
     
@@ -32,7 +29,8 @@ async def handle_buy_property(consumer, data: dict):
     )
   except Exception as e:
     await consumer.send_error(str(e))
+  pass
 
 @database_sync_to_async
-def buy_property_async(game_id, player_id, property_id):
-  return GameService.buy_property(game_id, player_id, property_id)
+def build_house_async(game_id, player_id, property_id, number_of_houses):
+  return GameService.build_house(game_id, player_id, property_id, number_of_houses)

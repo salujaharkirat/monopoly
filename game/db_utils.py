@@ -1,18 +1,19 @@
-from models import Player, Game
+from game.models import Player, Game
 from channels.db import database_sync_to_async
-from serializer import GameDetailSerializer
+from game.serializer import GameDetailSerializer
 from rest_framework.authtoken.models import Token
 class DbUtils:
-  @database_sync_to_async
   @staticmethod
+  @database_sync_to_async
   def get_token(key):
+      print("inside", key)
       try:
-          return Token.objects.get(key=key)
+        return Token.objects.get(key=key)
       except Token.DoesNotExist:
-          return None
+        return None
 
-  @database_sync_to_async
   @staticmethod
+  @database_sync_to_async
   def get_user_from_token(key):
       """Get user from token - handles all cases"""
       try:
@@ -34,14 +35,14 @@ class DbUtils:
           import traceback
           traceback.print_exc()
           return None
-  
-  @database_sync_to_async
+
   @staticmethod
+  @database_sync_to_async
   def get_player(user):
     return Player.objects.get(user=user)
 
-  @database_sync_to_async
   @staticmethod
+  @database_sync_to_async
   def get_game(game_id) -> Game | None:
     """Get game with related fields prefetched"""
     try:
@@ -50,25 +51,25 @@ class DbUtils:
     except Game.DoesNotExist:
       return None
 
-  @database_sync_to_async
   @staticmethod
+  @database_sync_to_async
   def start_game(game: Game):
     game.start_game()
     game.save()
     return game
 
-  @database_sync_to_async
   @staticmethod
+  @database_sync_to_async
   def get_game_state(game_id):
     game = Game.objects.get(id=game_id)
     return GameDetailSerializer(game).data
 
-  @database_sync_to_async
   @staticmethod
+  @database_sync_to_async
   def can_start_game(game, player):
     return game.can_start(player)
 
-  @database_sync_to_async
   @staticmethod
+  @database_sync_to_async
   def is_player_in_game(player, game):
     return game.players.filter(id=player.id).exists()

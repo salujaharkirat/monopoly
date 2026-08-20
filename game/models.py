@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
+from game.enums import SquareType
 
 class Player(models.Model):
   id: int
@@ -108,18 +109,6 @@ class ColorGroup(models.Model):
    color_code = models.CharField(max_length=7, help_text="Hex color code")
 
 class Square(models.Model):
-  class SquareType(models.TextChoices):
-    GO = 'GO', 'Go'
-    PROPERTY = 'PR', 'Property'
-    JAIL = 'JA', 'Jail'
-    FREE_PARKING = 'FP', 'Free Parking'
-    GO_TO_JAIL = 'GJ', 'Go to Jail'
-    CHANCE = 'CH', 'Chance'
-    COMMUNITY_CHEST = 'CC', 'Community Chest'
-    TAX = 'TA', 'Tax'
-    RAILROAD = 'RR', 'Railroad'
-    UTILITY = 'UT', 'Utility'
-  
   position = models.IntegerField(unique=True, validators=[MinValueValidator(0), MaxValueValidator(39)])
   name = models.CharField(max_length=100)
   square_type = models.CharField(max_length=2, choices=SquareType.choices)

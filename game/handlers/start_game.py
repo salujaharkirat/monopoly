@@ -1,7 +1,5 @@
-from events import EventBus
-from db_utils import DbUtils
+from game.db_utils import DbUtils
 
-@EventBus.subscribe('start_game')
 async def handle_start_game(consumer, data: dict):
   try:
     game_id = data.get('game_id')

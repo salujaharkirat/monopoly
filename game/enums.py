@@ -28,7 +28,7 @@ class SquareType(models.TextChoices):
     CHANCE = 'CH', 'Chance'
     COMMUNITY_CHEST = 'CC', 'Community Chest'
     TAX = 'TA', 'Tax'
-    RAILROAD = 'RR', 'Railroad'
+    RAIL_ROAD = 'RR', 'Railroad'
     UTILITY = 'UT', 'Utility'
 
     

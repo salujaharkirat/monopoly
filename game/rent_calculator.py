@@ -1,6 +1,12 @@
 from game.enums import SquareType
 from game.models import Game, Property, Square
 
+# Rent multipliers indexed by house count. 5 houses is a hotel.
+RENT_MULTIPLIERS = {0: 1, 1: 5, 2: 15, 3: 35, 4: 50, 5: 60}
+
+RAILROAD_BASE_RENT = 25
+
+
 class RentCalculator:
   @staticmethod
   def calculate_rent(game: Game, property: Property, dice_roll: int = 0):
@@ -13,7 +19,7 @@ class RentCalculator:
       return 0
 
     if square.square_type == SquareType.PROPERTY:
-      return RentCalculator._calculate_property_rent(square, game, property)
+      return RentCalculator._calculate_property_rent(square, property)
 
     if square.square_type == SquareType.RAIL_ROAD:
       return RentCalculator._calculate_rail_road_rent(game, property)
@@ -25,43 +31,34 @@ class RentCalculator:
 
   @staticmethod
   def _calculate_property_rent(square: Square, property: Property):
-    houses = property.houses
     base_rent = square.rent or 0
-    rent_tiers = {
-      0: base_rent,
-      1: 5 * base_rent,
-      2: 15 * base_rent,
-      3: 35 * base_rent,
-      4: 50 * base_rent,
-      5: 60 * base_rent
-    }
+    multiplier = RENT_MULTIPLIERS.get(property.houses, 1)
+    return base_rent * multiplier
 
-    return rent_tiers.get(houses)
+  @staticmethod
+  def _count_owned_in_type(game: Game, property: Property, square_type):
+    """
+    Count co-owned properties for railroad and ulitilities
+    """
+    if property.owner is None:
+      return 0
+
+    return Property.objects.filter(
+      owner=property.owner,
+      square__square_type=square_type,
+      game=game,
+      is_mortgaged=False,
+    ).count()
 
   @staticmethod
   def _calculate_rail_road_rent(game: Game, property: Property):
-    baseRent = 25
-    number_of_properties = Property.objects.filter(
-      owner = property.owner,
-      square__square_type = Square.SquareType.RAILROAD,
-      game = game,
-    ).count()
-
-    if number_of_properties > 0:
-      return baseRent * (number_of_properties)
-
-    return baseRent
+    owned = RentCalculator._count_owned_in_type(game, property, SquareType.RAIL_ROAD)
+    if owned <= 0:
+      return RAILROAD_BASE_RENT
+    return RAILROAD_BASE_RENT * (2 ** (owned - 1))
 
   @staticmethod
   def _calculate_utility_rent(game: Game, property: Property, dice_roll: int):
-    number_of_properties = Property.objects.filter(
-      owner = property.owner,
-      square_square_type = Square.SquareType.UTILITY,
-      game=game,
-    ).count()
-
-    if number_of_properties == 1:
-      return dice_roll * 4
-
-    return dice_roll * 10
-  
+    owned = RentCalculator._count_owned_in_type(game, property, SquareType.UTILITY)
+    multiplier = 4 if owned <= 1 else 10
+    return dice_roll * multiplier

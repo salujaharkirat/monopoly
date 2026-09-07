@@ -2,6 +2,7 @@ import functools
 import logging
 import random
 
+from game.enums import SquareType
 from game.strategies.square_strategy import SquareStrategyFactory
 
 from .exceptions import (
@@ -180,7 +181,7 @@ class GameService:
     except Square.DoesNotExist:
       raise SquareNotFound(f'No square configured at position {new_position}')
 
-    square_result = GameService.handle_square_landing(player, square, game)
+    square_result = GameService.handle_square_landing(player, square, game, total)
 
     if player.money < 0:
       raise PlayerBankrupt('Player is bankrupt', bankrupt=True)
@@ -207,7 +208,7 @@ class GameService:
     }
 
   @staticmethod
-  def handle_square_landing(player, square, game):
+  def handle_square_landing(player, square, game, dice_roll=0):
     result = {
       'square': square.position,
       'name': square.name,
@@ -216,7 +217,8 @@ class GameService:
     }
 
     strategy = SquareStrategyFactory.get_strategy(square.square_type)
-    strategy_result = strategy.execute(player, square, game)
+    # dice_roll is needed for utility rent, which is a multiple of the roll.
+    strategy_result = strategy.execute(player, square, game, dice_roll)
 
     return {**result, **strategy_result}
 
@@ -243,9 +245,9 @@ class GameService:
 
     # Check if this square can be purchased
     if property_obj.square.square_type not in [
-        Square.SquareType.PROPERTY,
-        Square.SquareType.RAILROAD,
-        Square.SquareType.UTILITY
+        SquareType.PROPERTY,
+        SquareType.RAIL_ROAD,
+        SquareType.UTILITY
     ]:
       raise PropertyNotPurchasable(f'{property_obj.square.name} cannot be purchased')
 
@@ -319,11 +321,12 @@ class GameService:
     except Property.DoesNotExist:
       raise PropertyNotFound('Property not found')
 
-    if property.square.square_type not in [Square.SquareType.PROPERTY]:
+    if property.square and property.square.square_type != SquareType.PROPERTY:
       raise BuildRuleViolation(f"Cannot build on {property.square.name} (not a property)")
 
-    if number_of_houses > 5 or number_of_houses < 1:
-      raise InvalidAction("Pass the number of houses to construct in range")
+
+    if number_of_houses < 1 or number_of_houses > 5:
+      raise InvalidAction("number_of_houses must be between 1 and 5")
 
     if property.owner is None or property.owner.id != player.id:
       raise NotPropertyOwner(
@@ -331,26 +334,45 @@ class GameService:
       )
 
     color_group = property.square.color_group
+    if color_group is None:
+      raise BuildRuleViolation(
+        f"{property.square.name} has no color group configured, so build rules cannot be checked"
+      )
 
-    if color_group:
-      owned_in_group = Property.objects.filter(
-          owner=player,
-          square__color_group=color_group,
-          game=game
-      ).count()
-      total_in_group = Property.objects.filter(
-          square__color_group=color_group,
-          game=game
-      ).count()
+    owned_in_group = Property.objects.filter(
+        owner=player,
+        square__color_group=color_group,
+        game=game
+    ).count()
+    total_in_group = Property.objects.filter(
+        square__color_group=color_group,
+        game=game
+    ).count()
 
-      if total_in_group != owned_in_group:
-        raise BuildRuleViolation(
-          f"Must own all {color_group.name} properties to build on {property.square.name}"
-        )
+    if total_in_group != owned_in_group:
+      raise BuildRuleViolation(
+        f"Must own all {color_group.name} properties to build on {property.square.name}"
+      )
 
     if property.houses + number_of_houses > 5:
       raise BuildRuleViolation(
-        f"Cannot have more than 5 houses/hotel on {property.square.name} (current: {property.houses})"
+        f"Cannot have more than 5 houses/1 hotel on {property.square.name} (current: {property.houses})"
+      )
+
+    # Legality before affordability, so an illegal build reports the rule it
+    # breaks rather than complaining about money.
+    allowed, reason = GameService.can_evenly_construct(
+      color_group, game, property, number_of_houses
+    )
+    if not allowed:
+      raise BuildRuleViolation(reason)
+
+    if property.square.house_cost is None:
+      # Board misconfiguration, not something the player did. Loud on purpose,
+      # but legible rather than a bare TypeError on `None * n`.
+      raise ValueError(
+        f"Square {property.square.position} ({property.square.name}) has no "
+        f"house_cost; re-run `manage.py init_board` to backfill it"
       )
 
     construction_cost = property.square.house_cost * number_of_houses
@@ -358,11 +380,6 @@ class GameService:
     if player.money < construction_cost:
       raise InsufficientFunds(
         f"Player {player.user.username} does not have ${construction_cost} to make {number_of_houses} houses"
-      )
-
-    if not GameService.can_evenly_construct(color_group, game, property, player, number_of_houses):
-      raise BuildRuleViolation(
-        f"Cannot construct {number_of_houses} evenly on {property.square.name}"
       )
 
     player.money -= construction_cost
@@ -383,29 +400,38 @@ class GameService:
     }
 
   @staticmethod
-  def can_evenly_construct(color_group, game, property, player, number_of_houses):
-    if not color_group:
-      return False
+  def can_evenly_construct(color_group, game, property, number_of_houses):
+    """
+    Check the even-build rule for adding `number_of_houses` to `property`.
 
-    properties = Property.objects.filter(
-      square__color_group=color_group,
-      game=game,
-      owner=player
-    ).exclude(id=property.id)
+    Returns `(allowed, reason)`.
+    """
+    if color_group is None:
+      return False, 'Property has no color group configured'
 
-    if not properties.exists():
-      return False
+    others = list(
+      Property.objects.filter(
+        square__color_group=color_group,
+        game=game,
+      ).exclude(id=property.id).values_list('houses', flat=True)
+    )
 
-    min_count = min([p.houses for p in properties])
-    max_count = max([p.houses for p in properties])
+    if not others:
+      # A single-property group has nothing to stay even with.
+      return True, ''
 
-    if property.houses > min_count:
-      return False
+    lowest = min(others)
+    highest_before_last_house = property.houses + number_of_houses - 1
 
-    if number_of_houses + property.houses > max_count:
-      return False
+    if highest_before_last_house > lowest:
+      headroom = max(0, lowest - property.houses + 1)
+      return False, (
+        f"Houses must be built evenly across {color_group.name}: "
+        f"{property.square.name} has {property.houses} and the lowest in the group "
+        f"is {lowest}, so you can add at most {headroom} here"
+      )
 
-    return True
+    return True, ''
 
   @staticmethod
   @service_result

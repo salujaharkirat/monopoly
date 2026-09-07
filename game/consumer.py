@@ -75,19 +75,18 @@ class GameConsumer(AsyncWebsocketConsumer):
             data['user'] = self.user
             data['game_id'] = self.game_id
 
-            print("reached here", self.user, action)
             handler = get_handler(action)
 
             if handler:
                 await handler(self, data)
             else:
-                await self.send_error(f"Unkown action {action}")
-                
+                await self.send_error(f"Unknown action {action}")
+
         except json.JSONDecodeError:
             await self.send_error("Invalid JSON")
-        except Exception as e:
-            logger.error(f"Error handling message: {e}")
-            await self.send_error(str(e))
+        except Exception:
+            logger.exception(f"Unhandled error in receive (game_id={self.game_id})")
+            await self.send_error("Something went wrong handling that action.")
 
     async def send_error(self, message):
         await self.send(text_data=json.dumps({
@@ -109,15 +108,20 @@ class GameConsumer(AsyncWebsocketConsumer):
         
     async def dice_rolled(self, event):
         """Handle dice rolled broadcast"""
-        print(f"📨 Dice rolled event received")
         await self.send(text_data=json.dumps({
             'type': 'dice_rolled',
             'data': event['data']
         }))
-    
+
     async def property_purchased(self, event):
         await self.send(text_data=json.dumps({
             'type': 'property_purchased',
+            'data': event['data']
+        }))
+
+    async def house_built(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'house_built',
             'data': event['data']
         }))
     

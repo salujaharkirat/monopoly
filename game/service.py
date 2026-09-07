@@ -1,188 +1,211 @@
+import functools
 import logging
 import random
 
-from django.core.exceptions import ValidationError
 from game.strategies.square_strategy import SquareStrategyFactory
 
+from .exceptions import (
+  BuildRuleViolation,
+  GameError,
+  GameNotFound,
+  InsufficientFunds,
+  InvalidAction,
+  InvalidGameState,
+  NotAuthorized,
+  NotPropertyOwner,
+  NotYourTurn,
+  PlayerBankrupt,
+  PlayerInJail,
+  PlayerNotFound,
+  PropertyAlreadyOwned,
+  PropertyNotFound,
+  PropertyNotPurchasable,
+  SquareNotFound,
+)
 from .models import Game, Player, Square, Property
 from .serializer import GameDetailSerializer
 
 logger = logging.getLogger(__name__)
 
+
+def service_result(func):
+  """Convert `GameError` into the ``{'success': False}`` response shape.
+
+  Only `GameError` is caught. Every other exception is a bug and propagates to
+  the caller, so it surfaces as a traceback instead of being handed to the
+  player as if it were a rule violation.
+  """
+  @functools.wraps(func)
+  def wrapper(*args, **kwargs):
+    try:
+      return func(*args, **kwargs)
+    except GameError as exc:
+      logger.info(f"{func.__name__} refused: {exc}")
+      return {
+        'success': False,
+        'message': str(exc),
+        'error': type(exc).__name__,
+        **exc.payload,
+      }
+  return wrapper
+
+
+def _get_game(game_id):
+  try:
+    return Game.objects.get(id=game_id)
+  except Game.DoesNotExist:
+    raise GameNotFound('Game not found')
+
+
+def _get_player(player_id):
+  try:
+    return Player.objects.get(id=player_id)
+  except Player.DoesNotExist:
+    raise PlayerNotFound('Player not found')
+
+
 class GameService:
   @staticmethod
+  @service_result
   def start_game(game_id, player_id):
-    try:
-      game = Game.objects.get(id=game_id)
-      player = Player.objects.get(id=player_id)
+    game = _get_game(game_id)
+    player = _get_player(player_id)
 
-      if player != game.created_by:
-        return {
-          'success': False,
-          'message': 'Only creator can start the game'
-        }
-      
-      can_start, errors = game.can_start(player)
+    if player != game.created_by:
+      raise NotAuthorized('Only creator can start the game')
 
-      if not can_start:
-        return {
-          'success': False,
-          'message': '\n'.join(errors)
-        }
-      
-      game.start_game()
+    can_start, error_message = game.can_start(player)
+    if not can_start:
+      raise InvalidGameState(error_message)
 
-      for square in Square.objects.all():
-        Property.objects.create(
-            square=square,
-            game=game,
-            owner=None,  # ✅ Empty! Unowned
-            houses=0,
-            is_mortgaged=False
-        )
+    game.start_game()
 
-      game_state = GameService.get_game_state(game_id)
-      return {
-        'success': True,
-        'message': 'Game started successfully',
-        'game_state': game_state
-      }
-    except Game.DoesNotExist:
-      return {'success': False, 'message': 'Game not found'}
-    except Player.DoesNotExist:
-      return {'success': False, 'message': 'Player not found'}
-    except ValidationError as e:
-        return {'success': False, 'message': str(e)}
-    except Exception as e:
-        logger.error(f"Error starting game: {e}")
-        return {'success': False, 'message': 'An error occurred'}
+    for square in Square.objects.all():
+      Property.objects.create(
+          square=square,
+          game=game,
+          owner=None,
+          houses=0,
+          is_mortgaged=False
+      )
+
+    return {
+      'success': True,
+      'message': 'Game started successfully',
+      'game_state': GameService.get_game_state(game_id)
+    }
 
   @staticmethod
+  @service_result
   def get_game_state(game_id):
-    """Get current game state as dictionary"""
+    """Get current game state as dictionary.
+
+    Raises `GameNotFound` rather than returning None, so a missing game can
+    never be mistaken for an empty one.
+    """
     try:
       game = Game.objects.prefetch_related('players').get(id=game_id)
-      
-      return {
-        'id': game.id,
-        'name': game.name,
-        'state': game.state,
-        'current_player_index': game.current_player_index,
-        'turn_number': game.turn_number,
-        'players': [
-            {
-              'id': player.id,
-              'username': player.user.username,
-              'money': player.money,
-              'position': player.position,
-              'is_in_jail': player.is_in_jail,
-              'is_active': player.is_active
-            }
-            for player in game.players.all()
-        ],
-        'player_count': game.players.count(),
-        'max_players': game.max_players,
-        'min_players': game.min_players,
-        'created_by': game.created_by.user.username,
-        'created_at': game.created_at.isoformat(),
-        'updated_at': game.updated_at.isoformat()
-      }
     except Game.DoesNotExist:
-        return None
+      raise GameNotFound('Game not found')
+
+    return {
+      'id': game.id,
+      'name': game.name,
+      'state': game.state,
+      'current_player_index': game.current_player_index,
+      'turn_number': game.turn_number,
+      'players': [
+          {
+            'id': player.id,
+            'username': player.user.username,
+            'money': player.money,
+            'position': player.position,
+            'is_in_jail': player.is_in_jail,
+            'is_active': player.is_active
+          }
+          for player in game.players.all()
+      ],
+      'player_count': game.players.count(),
+      'max_players': game.max_players,
+      'min_players': game.min_players,
+      'created_by': game.created_by.user.username,
+      'created_at': game.created_at.isoformat(),
+      'updated_at': game.updated_at.isoformat()
+    }
 
   @staticmethod
+  @service_result
   def roll_dice(game_id, player_id):
     try:
       game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)
-      player = Player.objects.get(id=player_id)
+    except Game.DoesNotExist:
+      raise GameNotFound('Game not found')
+    player = _get_player(player_id)
 
-      if game.state != Game.GameState.PLAYING:
-        return {
-          'success': False,
-          'message': 'Game is not in playing state'
-        }
-      
-      current_player = game.get_current_player()
-      if not current_player:
-        return {
-          'success': False,
-          'message': 'Player not found'
-        }
-      
-      if current_player.id != player.id:
-        return {
-          'success': False,
-          'message': 'Not your turn'          
-        }
-      
-      if player.is_in_jail:
-        return {
-          'success': False,
-          'message': 'Player is in jail. Pay $50 or use get out of jail card'
-        }
-      
+    if game.state != Game.GameState.PLAYING:
+      raise InvalidGameState('Game is not in playing state')
 
-      dice1 = random.randint(1, 6)
-      dice2 = random.randint(1, 6)
-      total = dice1 + dice2
-      is_doubles = dice1 == dice2
+    current_player = game.get_current_player()
+    if not current_player:
+      raise PlayerNotFound('Player not found')
 
-      # Calculate new position
-      old_position = player.position
-      new_position = (old_position + total) % 40
+    if current_player.id != player.id:
+      raise NotYourTurn('Not your turn')
 
+    if player.is_in_jail:
+      raise PlayerInJail('Player is in jail. Pay $50 or use get out of jail card')
 
-      # Check if passed GO
-      passed_go = new_position < old_position
+    dice1 = random.randint(1, 6)
+    dice2 = random.randint(1, 6)
+    total = dice1 + dice2
+    is_doubles = dice1 == dice2
 
-      # Update player position
-      player.position = new_position
+    # Calculate new position
+    old_position = player.position
+    new_position = (old_position + total) % 40
+
+    # Check if passed GO
+    passed_go = new_position < old_position
+
+    # Update player position
+    player.position = new_position
+    player.save()
+
+    if passed_go:
+      player.money += 200
       player.save()
 
-      if passed_go:
-        player.money += 200
-        player.save()
-    
+    try:
       square = Square.objects.get(position=new_position)
-      square_result = GameService.handle_square_landing(player, square, game)
+    except Square.DoesNotExist:
+      raise SquareNotFound(f'No square configured at position {new_position}')
 
-      if player.money < 0:
-        return {
-          'success': False,
-          'message': 'Player is bankrupt',
-          'bankrupt': True
-        }
-      
-      if not is_doubles:
-        game.next_turn()
-        game.save()
-      
-      game_state = GameDetailSerializer(game).data
+    square_result = GameService.handle_square_landing(player, square, game)
 
+    if player.money < 0:
+      raise PlayerBankrupt('Player is bankrupt', bankrupt=True)
 
-      return {
-        'success': True,
-        'data': {
-          'dice': {
-            'dice1': dice1,
-            'dice2': dice2,
-            'is_doubles': is_doubles,
-            'old_position': old_position,
-            'new_position': new_position,
-            'passed_go': passed_go,
-            'total': total,
-          },
-          'square_result': square_result,
-          'game_state': game_state
-        }
+    if not is_doubles:
+      game.next_turn()
+      game.save()
+
+    return {
+      'success': True,
+      'data': {
+        'dice': {
+          'dice1': dice1,
+          'dice2': dice2,
+          'is_doubles': is_doubles,
+          'old_position': old_position,
+          'new_position': new_position,
+          'passed_go': passed_go,
+          'total': total,
+        },
+        'square_result': square_result,
+        'game_state': GameDetailSerializer(game).data
       }
-    except Game.DoesNotExist:
-      return {'success': False, 'message': 'Game not found'}
-    except Player.DoesNotExist:
-      return {'success': False, 'message': 'Player not found'}
-    except Exception as e:
-      return {'success': False, 'message': str(e)}
-  
+    }
+
   @staticmethod
   def handle_square_landing(player, square, game):
     result = {
@@ -198,214 +221,166 @@ class GameService:
     return {**result, **strategy_result}
 
   @staticmethod
+  @service_result
   def buy_property(game_id, player_id, property_id):
     """Buy a property"""
+    game = _get_game(game_id)
+    player = _get_player(player_id)
+
+    if game.state != Game.GameState.PLAYING:
+      raise InvalidGameState('Game is not in playing state')
+
     try:
-      game = Game.objects.get(id=game_id)
-      player = Player.objects.get(id=player_id)
-
-      if not game or not player:
-        return {
-            'success': False,
-            'message': 'Game or Player not found'
-        }
-
-      # Validate
-      if game.state != Game.GameState.PLAYING:
-        return {
-            'success': False,
-            'message': 'Game is not in playing state'
-        }
-      
-
       property_obj = Property.objects.select_related('square', 'owner').get(id=property_id, game=game)
-  
-      if property_obj.owner:
-        return {
-          'success': False,
-          'message': 'Property is already owned'
-        }
-
-      if not property_obj.square:
-        return {
-          'success': False,
-          'message': 'No square mapping found for property'
-        }
-
-      # Check if this square can be purchased
-      if property_obj.square.square_type not in [
-          Square.SquareType.PROPERTY,
-          Square.SquareType.RAILROAD,
-          Square.SquareType.UTILITY
-      ]:
-        return {
-            'success': False,
-            'message': f'{property_obj.square.name} cannot be purchased'
-        }
-      
-      price = property_obj.square.price
-      if price is None:
-        return {
-          'success': False,
-          'message': f'{property_obj.square.name} doesn ot have a valid price'
-        }
-
-      if player.money < price:
-        return {
-          'success': False,
-          'message': f'Not enough money! Need ${property_obj.square.price}, have ${player.money}'
-        }
-      
-      current_player = game.get_current_player()
-  
-      if current_player is None:
-        return {
-            'success': False,
-            'message': 'No current player found'
-        }
-
-      if current_player.id != player.id:
-        return {
-          'success': False,
-          'message': 'Not your turn'
-        }
-  
-      # Check if player is on this property
-      if player.position != property_obj.square.position:
-        return {
-            'success': False,
-            'message': 'You are not on this property'
-        }
-      
-      player.money -= price
-      property_obj.set_owner(player)
-      property_obj.save()
-      player.save()
-
-      return {
-        'success': True,
-        'message': f'{player.user.username} bought {property_obj.square.name} for ${property_obj.square.price}',
-        'data': {
-          'property_id': property_obj.id,
-          'property_name': property_obj.square.name,
-          'price': property_obj.square.price,
-          'player_money': player.money
-        }
-      }
-
-    except Game.DoesNotExist:
-      return {'success': False, 'message': 'Game not found'}
-    except Player.DoesNotExist:
-      return {'success': False, 'message': 'Player not found'}
     except Property.DoesNotExist:
-      return {'success': False, 'message': 'Property not found'}
-    except Exception as e:
-      return {'success': False, 'message': str(e)}
-  
+      raise PropertyNotFound('Property not found')
+
+    if property_obj.owner:
+      raise PropertyAlreadyOwned('Property is already owned')
+
+    if not property_obj.square:
+      raise PropertyNotPurchasable('No square mapping found for property')
+
+    # Check if this square can be purchased
+    if property_obj.square.square_type not in [
+        Square.SquareType.PROPERTY,
+        Square.SquareType.RAILROAD,
+        Square.SquareType.UTILITY
+    ]:
+      raise PropertyNotPurchasable(f'{property_obj.square.name} cannot be purchased')
+
+    price = property_obj.square.price
+    if price is None:
+      raise PropertyNotPurchasable(f'{property_obj.square.name} does not have a valid price')
+
+    if player.money < price:
+      raise InsufficientFunds(
+        f'Not enough money! Need ${price}, have ${player.money}'
+      )
+
+    current_player = game.get_current_player()
+    if current_player is None:
+      raise PlayerNotFound('No current player found')
+
+    if current_player.id != player.id:
+      raise NotYourTurn('Not your turn')
+
+    # Check if player is on this property
+    if player.position != property_obj.square.position:
+      raise InvalidAction('You are not on this property')
+
+    player.money -= price
+    property_obj.set_owner(player)
+    property_obj.save()
+    player.save()
+
+    return {
+      'success': True,
+      'message': f'{player.user.username} bought {property_obj.square.name} for ${price}',
+      'data': {
+        'property_id': property_obj.id,
+        'property_name': property_obj.square.name,
+        'price': price,
+        'player_money': player.money
+      }
+    }
+
   @staticmethod
+  @service_result
   def end_turn(game_id):
     """End current turn"""
     try:
       game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)
-      total_players = game.players.count()
-      next_player_index = (game.current_player_index + 1) % total_players
-      game.turn_number += 1
-      game.current_player_index = next_player_index
-      game.save()
+    except Game.DoesNotExist:
+      raise GameNotFound('Game not found')
 
-      next_player = game.get_current_player()
+    total_players = game.players.count()
+    if total_players == 0:
+      raise InvalidGameState('Game has no players')
 
-      return {
-        'success': True,
-        'message': f"{next_player.user.username}'s turn now"
-      }
-    except Exception as e:
-      return {'success': False, 'message': str(e)}
+    game.current_player_index = (game.current_player_index + 1) % total_players
+    game.turn_number += 1
+    game.save()
+
+    next_player = game.get_current_player()
+
+    return {
+      'success': True,
+      'message': f"{next_player.user.username}'s turn now"
+    }
 
   @staticmethod
+  @service_result
   def build_house(game_id, player_id, property_id, number_of_houses):
+    player = _get_player(player_id)
+    game = _get_game(game_id)
     try:
-      player = Player.objects.get(id=player_id)
-      game = Game.objects.get(id=game_id)
       property = Property.objects.select_related('square', 'owner', 'square__color_group').get(id=property_id, game=game)
-      construction_cost = 0
-
-      if property.square.square_type not in [Square.SquareType.PROPERTY]:
-        return {
-            'success': False,
-            'message': f"Cannot build on {property.square.name} (not a property)"
-        }
-
-      if number_of_houses > 5 or number_of_houses < 1:
-        return {
-          'success': False,
-          'message': f"Pass the number of houses to construct in range"
-        }
-
-      if property.owner.id != player.id:
-        return {
-          'success': False,
-          'message': f"Player {player.user.username} does not own {property.square.name}"
-        }
-
-      color_group = property.square.color_group
-
-      if color_group:
-        owned_in_group = Property.objects.filter(
-            owner=player,
-            square__color_group=color_group,
-            game=game
-        ).count()
-        total_in_group = Property.objects.filter(
-            square__color_group=color_group,
-            game=game
-        ).count()
-
-        if total_in_group != owned_in_group:
-          return {
-            'success': False,
-            'message': f"Must own all {color_group.name} properties to build on {property.square.name}"
-          }
-
-      if property.houses + number_of_houses > 5:
-        return {
-          'success': False,
-          'message': f"Cannot have more than 5 houses/hotel on {property.square.name} (current: {property.houses})"
-        }
-
-      if property.square:
-        construction_cost = property.square.house_cost * number_of_houses
-
-      if player.money < construction_cost:
-        return {
-          'success': False,
-          'message': f"Player {player.user.username} does not have ${construction_cost} to make {number_of_houses} houses"
-        }
-
-      if not GameService.can_evenly_construct(color_group, game, property, player, number_of_houses):
-        return {
-          'success': False,
-          'message': f"Cannot construct {number_of_houses} evenly on {property.square.name}"
-        }
-
-      player.money -= construction_cost
-      property.houses += number_of_houses
-      player.save()
-      property.save()
-
-      return {
-        'success': True,
-        'message': f"Player {player.user.username} constructed {number_of_houses} on property {property.square.name}"
-      }
-      
-    except Game.DoesNotExist:
-      return {'success': False, 'message': 'Game not found'}
-    except Player.DoesNotExist:
-      return {'success': False, 'message': 'Player not found'}
     except Property.DoesNotExist:
-      return {'success': False, 'message': 'Property not found'}
-    except Exception as e:
-      return {'success': False, 'message': str(e)}
+      raise PropertyNotFound('Property not found')
+
+    if property.square.square_type not in [Square.SquareType.PROPERTY]:
+      raise BuildRuleViolation(f"Cannot build on {property.square.name} (not a property)")
+
+    if number_of_houses > 5 or number_of_houses < 1:
+      raise InvalidAction("Pass the number of houses to construct in range")
+
+    if property.owner is None or property.owner.id != player.id:
+      raise NotPropertyOwner(
+        f"Player {player.user.username} does not own {property.square.name}"
+      )
+
+    color_group = property.square.color_group
+
+    if color_group:
+      owned_in_group = Property.objects.filter(
+          owner=player,
+          square__color_group=color_group,
+          game=game
+      ).count()
+      total_in_group = Property.objects.filter(
+          square__color_group=color_group,
+          game=game
+      ).count()
+
+      if total_in_group != owned_in_group:
+        raise BuildRuleViolation(
+          f"Must own all {color_group.name} properties to build on {property.square.name}"
+        )
+
+    if property.houses + number_of_houses > 5:
+      raise BuildRuleViolation(
+        f"Cannot have more than 5 houses/hotel on {property.square.name} (current: {property.houses})"
+      )
+
+    construction_cost = property.square.house_cost * number_of_houses
+
+    if player.money < construction_cost:
+      raise InsufficientFunds(
+        f"Player {player.user.username} does not have ${construction_cost} to make {number_of_houses} houses"
+      )
+
+    if not GameService.can_evenly_construct(color_group, game, property, player, number_of_houses):
+      raise BuildRuleViolation(
+        f"Cannot construct {number_of_houses} evenly on {property.square.name}"
+      )
+
+    player.money -= construction_cost
+    property.houses += number_of_houses
+    player.save()
+    property.save()
+
+    return {
+      'success': True,
+      'message': f"Player {player.user.username} constructed {number_of_houses} on property {property.square.name}",
+      'data': {
+        'property_id': property.id,
+        'property_name': property.square.name,
+        'houses': property.houses,
+        'cost': construction_cost,
+        'player_money': player.money
+      }
+    }
 
   @staticmethod
   def can_evenly_construct(color_group, game, property, player, number_of_houses):
@@ -433,76 +408,62 @@ class GameService:
     return True
 
   @staticmethod
+  @service_result
   def leave_game(game_id, player_id):
     try:
       game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)
-      player = Player.objects.get(id=player_id)
+    except Game.DoesNotExist:
+      raise GameNotFound('Game not found')
+    player = _get_player(player_id)
 
-      if not game.players.filter(id=player.id).exists():
-        return {
-          'success': False,
-          'message': 'You are not in this game'
-        }
-      
-      if game.state == Game.GameState.FINISHED:
-        return {
-          'success': False,
-          'message': 'Game is already finished'
-        }
-      
-      if game.state == Game.GameState.PLAYING:
-        properties = Property.objects.filter(owner=player, game=game)
-        for prop in properties:
-          prop.owner = None
-          prop.houses = 0
-          prop.is_mortgaged = False
-          prop.save()
-      
-      game.players.remove(player)
-      if game.created_by.id == player_id and game.players.exists():
-        new_creator = game.players.first()
-        if new_creator:
-          game.created_by = new_creator
-          game.save()
-      
-      if game.state == Game.GameState.WAITING:
-        if game.players.count() == 0:
-          Property.objects.filter(game=game).delete()
-          game.delete()
-          return {
-            'success': True,
-            'message': f'Game {game.name} was not started and empty and is deleted',
-            'game_deleted': True
-          }
-        if game.players.count() < game.min_players:
-          pass
-      
-      if game.state == Game.GameState.PLAYING and game.players.count() < 2:
-        game.state = Game.GameState.FINISHED
+    if not game.players.filter(id=player.id).exists():
+      raise InvalidAction('You are not in this game')
+
+    if game.state == Game.GameState.FINISHED:
+      raise InvalidGameState('Game is already finished')
+
+    if game.state == Game.GameState.PLAYING:
+      properties = Property.objects.filter(owner=player, game=game)
+      for prop in properties:
+        prop.owner = None
+        prop.houses = 0
+        prop.is_mortgaged = False
+        prop.save()
+
+    game.players.remove(player)
+    if game.created_by.id == player_id and game.players.exists():
+      new_creator = game.players.first()
+      if new_creator:
+        game.created_by = new_creator
         game.save()
 
-        winner = game.players.first()
+    if game.state == Game.GameState.WAITING:
+      if game.players.count() == 0:
+        Property.objects.filter(game=game).delete()
+        game.delete()
         return {
           'success': True,
-          'message': f'{player.user.username} left the game. {winner.user.username} wins!',
-          'game_ended': True,
-          'winner': winner.user.username
-                              
+          'message': f'Game {game.name} was not started and empty and is deleted',
+          'game_deleted': True
         }
-      
+
+    if game.state == Game.GameState.PLAYING and game.players.count() < 2:
+      game.state = Game.GameState.FINISHED
       game.save()
+
+      winner = game.players.first()
       return {
         'success': True,
-        'message': f'{player.user.username} left the game',
-        'game_id': game.id,
-        'player_count': game.players.count(),
-        'game_state': game.state
+        'message': f'{player.user.username} left the game. {winner.user.username} wins!',
+        'game_ended': True,
+        'winner': winner.user.username
       }
-    except Game.DoesNotExist:
-      return {'success': False, 'message': 'Game not found'}
-    except Player.DoesNotExist:
-      return {'success': False, 'message': 'Player not found'}
-    except Exception as e:
-      return {'success': False, 'message': str(e)}
 
-  
+    game.save()
+    return {
+      'success': True,
+      'message': f'{player.user.username} left the game',
+      'game_id': game.id,
+      'player_count': game.players.count(),
+      'game_state': game.state
+    }

@@ -1,34 +1,35 @@
 from game.db_utils import DbUtils
+from game.exceptions import GameNotFound, InvalidGameState, NotAuthorized, PlayerNotFound
+from game.handlers.base import ws_handler
 
+
+@ws_handler
 async def handle_start_game(consumer, data: dict):
-  try:
-    game_id = data.get('game_id')
-    player = await DbUtils.get_player(data.get('user'))
-    game = await DbUtils.get_game(game_id)
+  game_id = data.get('game_id')
+  player = await DbUtils.get_player(data.get('user'))
+  game = await DbUtils.get_game(game_id)
 
-    if not player:
-        await consumer.send_error("Player not found")
-        return
-    
-    if not game:
-        await consumer.send_error("Game not found")
-        return
-    
+  if not player:
+    raise PlayerNotFound('Player not found')
 
-    if game.created_by != player:
-        await consumer.send_error("Only creater can start the game")
-        return
-    
-    can_start, errors = await DbUtils.can_start_game(game, player)
-    if not can_start:
-        await consumer.send_error("".join(errors))
-        return
-    
-    await DbUtils.start_game(game)
+  if not game:
+    raise GameNotFound('Game not found')
 
-    game_state = await DbUtils.get_game_state(game_id)
-    
-    await consumer.broadcast_game_state(game_state)
-      
-  except Exception as e:
-    await consumer.send_error(str(e))
+  if game.created_by != player:
+    raise NotAuthorized('Only the creator can start the game')
+
+  can_start, errors = await DbUtils.can_start_game(game, player)
+  if not can_start:
+    raise InvalidGameState(errors)
+
+  await DbUtils.start_game(game)
+
+  game_state = await DbUtils.get_game_state(game_id)
+
+  await consumer.channel_layer.group_send(
+    consumer.room_group_name,
+    {
+      'type': 'game_started',
+      'data': game_state
+    }
+  )

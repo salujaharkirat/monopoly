@@ -2,6 +2,8 @@ import functools
 import logging
 import random
 
+from django.db import transaction
+
 from game import turn_order
 from game.enums import SquareType
 from game.strategies.square_strategy import SquareStrategyFactory
@@ -69,6 +71,7 @@ def _get_player(player_id):
 class GameService:
   @staticmethod
   @service_result
+  @transaction.atomic
   def start_game(game_id, player_id):
     game = _get_game(game_id)
     player = _get_player(player_id)
@@ -137,6 +140,7 @@ class GameService:
 
   @staticmethod
   @service_result
+  @transaction.atomic
   def roll_dice(game_id, player_id):
     try:
       game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)
@@ -171,11 +175,10 @@ class GameService:
 
     # Update player position
     player.position = new_position
-    player.save()
 
     if passed_go:
       player.money += 200
-      player.save()
+    player.save()
 
     try:
       square = Square.objects.get(position=new_position)
@@ -224,6 +227,7 @@ class GameService:
 
   @staticmethod
   @service_result
+  @transaction.atomic
   def buy_property(game_id, player_id, property_id):
     """Buy a property"""
     game = _get_game(game_id)
@@ -289,6 +293,7 @@ class GameService:
 
   @staticmethod
   @service_result
+  @transaction.atomic
   def end_turn(game_id):
     """End current turn"""
     try:
@@ -308,6 +313,7 @@ class GameService:
 
   @staticmethod
   @service_result
+  @transaction.atomic
   def build_house(game_id, player_id, property_id, number_of_houses):
     player = _get_player(player_id)
     game = _get_game(game_id)
@@ -430,6 +436,7 @@ class GameService:
 
   @staticmethod
   @service_result
+  @transaction.atomic
   def leave_game(game_id, player_id):
     try:
       game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)

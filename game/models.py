@@ -123,12 +123,15 @@ class Square(models.Model):
 
 class Property(models.Model):
   id: int
-  square = models.OneToOneField(Square, on_delete = models.SET_NULL, related_name='property', null=True)
+  square = models.ForeignKey(Square, on_delete = models.SET_NULL, related_name='property', null=True)
   owner = models.ForeignKey('Player', on_delete=models.SET_NULL, null=True, blank=True, related_name='properties')
   houses = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(5)])
   is_mortgaged = models.BooleanField(default=False)
   game = models.ForeignKey('Game', on_delete=models.SET_NULL, related_name='properties', null=True)
 
+  class Meta:
+     unique_together = ('square', 'game')
+     
   def __str__(self):
     return f"{self.square.name} - {self.owner.user.username if self.owner else 'Unowned'}"
 

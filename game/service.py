@@ -2,6 +2,7 @@ import functools
 import logging
 import random
 
+from game import turn_order
 from game.enums import SquareType
 from game.strategies.square_strategy import SquareStrategyFactory
 
@@ -146,7 +147,7 @@ class GameService:
     if game.state != Game.GameState.PLAYING:
       raise InvalidGameState('Game is not in playing state')
 
-    current_player = game.get_current_player()
+    current_player = turn_order.get_current_player(game)
     if not current_player:
       raise PlayerNotFound('Player not found')
 
@@ -187,8 +188,7 @@ class GameService:
       raise PlayerBankrupt('Player is bankrupt', bankrupt=True)
 
     if not is_doubles:
-      game.next_turn()
-      game.save()
+      turn_order.advance_turn(game)
 
     return {
       'success': True,
@@ -260,7 +260,7 @@ class GameService:
         f'Not enough money! Need ${price}, have ${player.money}'
       )
 
-    current_player = game.get_current_player()
+    current_player = turn_order.get_current_player(game)
     if current_player is None:
       raise PlayerNotFound('No current player found')
 
@@ -296,15 +296,10 @@ class GameService:
     except Game.DoesNotExist:
       raise GameNotFound('Game not found')
 
-    total_players = game.players.count()
-    if total_players == 0:
+    if game.players.count() == 0:
       raise InvalidGameState('Game has no players')
 
-    game.current_player_index = (game.current_player_index + 1) % total_players
-    game.turn_number += 1
-    game.save()
-
-    next_player = game.get_current_player()
+    next_player = turn_order.advance_turn(game)
 
     return {
       'success': True,

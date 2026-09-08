@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
+from . import turn_order
 from .models import Game, Player, Square
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -73,7 +74,7 @@ class GameDetailSerializer(serializers.ModelSerializer):
         ]
     
     def get_current_player(self, obj):
-        current = obj.get_current_player()
+        current = turn_order.get_current_player(obj)
         if current:
             return PlayerSerializer(current).data
         return None
@@ -105,7 +106,7 @@ class GameDetailSerializer(serializers.ModelSerializer):
         ]
     
     def get_current_player(self, obj):
-        current = obj.get_current_player()
+        current = turn_order.get_current_player(obj)
         if current:
             return PlayerSerializer(current).data
         return None

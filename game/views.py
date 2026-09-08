@@ -154,6 +154,14 @@ class JoinGameView(APIView):
             )
         
         player = request.user.monopoly_player
+
+        if player.games.filter(
+            state__in=[Game.GameState.WAITING, Game.GameState.PLAYING]
+        ).exists():
+            return Response(
+                {"detail": "You are already in an active game"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         if not game.can_join(player)[0]:
             return Response(

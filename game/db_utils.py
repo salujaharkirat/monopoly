@@ -39,7 +39,10 @@ class DbUtils:
   @staticmethod
   @database_sync_to_async
   def get_player(user):
-    return Player.objects.get(user=user)
+    try:
+      return Player.objects.get(user=user)
+    except Player.DoesNotExist:
+      return None
 
   @staticmethod
   @database_sync_to_async
@@ -53,21 +56,9 @@ class DbUtils:
 
   @staticmethod
   @database_sync_to_async
-  def start_game(game: Game):
-    game.start_game()
-    game.save()
-    return game
-
-  @staticmethod
-  @database_sync_to_async
   def get_game_state(game_id):
     game = Game.objects.get(id=game_id)
     return GameDetailSerializer(game).data
-
-  @staticmethod
-  @database_sync_to_async
-  def can_start_game(game, player):
-    return game.can_start(player)
 
   @staticmethod
   @database_sync_to_async

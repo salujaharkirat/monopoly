@@ -13,10 +13,11 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from .models import Game, Player
 from .serializer import (
-    GameSerializer, 
-    GameDetailSerializer, 
+    GameSerializer,
+    GameDetailSerializer,
     CreateGameSerializer
 )
+from .service import GameService
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
@@ -89,8 +90,6 @@ class GameDetailView(generics.RetrieveAPIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = GameDetailSerializer
-    # queryset = Game.objects.all()
-    # # lookup_field = 'id'
 
     def get(self, request, game_id):
         player = request.user.monopoly_player
@@ -178,33 +177,21 @@ class StartGameView(APIView):
     """Start a game"""
     authentication_classes = [TokenAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def post(self, request, game_id):
-        try:
-            game = Game.objects.get(id=game_id)
-        except Game.DoesNotExist:
-            return Response(
-                {"detail": "Game not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
         player = request.user.monopoly_player
-        
-        if game.created_by != player:
+
+        result = GameService.start_game(game_id, player.id)
+
+        if not result['success']:
             return Response(
-                {"detail": "Only the game creator can start the game"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        can_start, errors = game.can_start(player)
-        if not can_start:
-            return Response(
-                {"detail": errors},
+                {"detail": result['message']},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        game.start_game()
-        
+
+        game = Game.objects.get(id=game_id)
+        game_data = GameDetailSerializer(game).data
+
         # Broadcast via WebSocket
         channel_layer = get_channel_layer()
 
@@ -213,8 +200,8 @@ class StartGameView(APIView):
                 f'game_{game_id}',
                 {
                     'type': 'game_started',
-                    'data': GameDetailSerializer(game).data
+                    'data': game_data
                 }
             )
-        
-        return Response(GameDetailSerializer(game).data)
+
+        return Response(game_data)

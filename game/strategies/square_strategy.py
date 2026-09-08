@@ -1,6 +1,7 @@
 import random
 from abc import ABC, abstractmethod
 
+from game import bank
 from game.rent_calculator import RentCalculator
 from game.models import Player, Square, Game, Property
 
@@ -75,10 +76,7 @@ class PropertySquareStrategy(SquareStrategy):
         'rent_due': rent,
       }
 
-    player.money -= rent
-    property.owner.money += rent
-    player.save()
-    property.owner.save()
+    bank.transfer(player, property.owner, rent)
 
     return {
       'message': f"Paid ${rent} rent to {property.owner.user.username}",
@@ -89,8 +87,7 @@ class PropertySquareStrategy(SquareStrategy):
 class TaxSquareStrategy(SquareStrategy):
   def execute(self, player: Player, square: Square, game: Game, dice_roll: int = 0):
     tax_amount = square.tax_amount or 100
-    player.money -= tax_amount
-    player.save()
+    bank.transfer(player, None, tax_amount)
     return {
       'message': f"Paid ${tax_amount} in taxes",
       'amount': tax_amount,

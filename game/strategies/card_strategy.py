@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from game import bank
 from game.models import Player, Square, Game, Property
 from game.enums import CardType
 from game.rent_calculator import RentCalculator
@@ -22,8 +23,7 @@ class CardStrategy(ABC):
 class CollectMoneyStrategy(CardStrategy):
   def execute(self, player: Player, square: Square, game: Game, card: dict):
     amount = card.get('amount', 0)
-    player.money += amount
-    player.save()
+    bank.transfer(None, player, amount)
     return {
       'amount': amount,
       'message': f"Collected ${amount}"
@@ -38,8 +38,7 @@ class PayMoneyStrategy(CardStrategy):
         'amount': 0,
         'message': f"Not enough money to pay ${amount}"
       }
-    player.money -= amount
-    player.save()
+    bank.transfer(player, None, amount)
     return {
       'amount': amount,
       'message': f"Paid ${amount}"
@@ -49,8 +48,8 @@ class PayMoneyStrategy(CardStrategy):
 class AdvanceToGoStrategy(CardStrategy):
   def execute(self, player: Player, square: Square, game: Game, card: dict):
     player.position = 0
-    player.money += 200
-    player.save()
+    player.save(update_fields=['position'])
+    bank.transfer(None, player, 200)
     return {
       'amount': 200,
       'message': "Advanced to GO and collected $200"
@@ -75,12 +74,12 @@ class AdvanceToPropertyStrategy(CardStrategy):
     # Moving forward past GO pays $200; moving to a lower position means the
     # board wrapped around.
     if target_position < old_position:
-      player.money += 200
+      bank.transfer(None, player, 200)
       result['amount'] = 200
       result['message'] = f"Moved to {property_name} and collected $200 for passing GO"
 
     player.position = target_position
-    player.save()
+    player.save(update_fields=['position'])
 
     property = Property.objects.select_related('square', 'owner').get(
       square__position=target_position, game=game
@@ -92,10 +91,7 @@ class AdvanceToPropertyStrategy(CardStrategy):
         result['message'] += f" - not enough money to pay ${rent} rent"
         return result
 
-      player.money -= rent
-      property.owner.money += rent
-      property.owner.save()
-      player.save()
+      bank.transfer(player, property.owner, rent)
       result['amount'] = rent
       result['message'] += f" - Paid ${rent} rent to {property.owner.user.username}"
     elif not property.owner:
@@ -159,8 +155,7 @@ class RepairsStrategy(CardStrategy):
       return {'amount': 0, 'message': "No buildings to repair"}
 
     paid = min(total_cost, player.money)
-    player.money -= paid
-    player.save()
+    bank.transfer(player, None, paid)
 
     return {
       'amount': paid,
@@ -178,11 +173,8 @@ class PayEachPlayerStrategy(CardStrategy):
       payable = min(amount, player.money)
       if payable <= 0:
         break
-      player.money -= payable
-      p.money += payable
+      bank.transfer(player, p, payable)
       total_paid += payable
-      p.save()
-      player.save()
 
     return {
       'amount': total_paid,
@@ -199,12 +191,10 @@ class CollectFromAllStrategy(CardStrategy):
       if p.id == player.id:
         continue
       payable = min(amount, p.money)
-      p.money -= payable
+      bank.transfer(p, None, payable)
       total_collected += payable
-      p.save()
 
-    player.money += total_collected
-    player.save()
+    bank.transfer(None, player, total_collected)
     return {
       'amount': total_collected,
       'message': f"Collected ${total_collected} from other players"

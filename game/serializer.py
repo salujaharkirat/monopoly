@@ -44,7 +44,7 @@ class PlayerSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Player
-        fields = ['id', 'user', 'username', 'money', 'position', 'is_in_jail', 'is_active']
+        fields = ['id', 'user', 'username', 'money', 'position', 'is_in_jail', 'get_out_of_jail_cards', 'is_active']
 
 class GameSerializer(serializers.ModelSerializer):
     player_count = serializers.IntegerField(source='players.count', read_only=True)

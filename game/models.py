@@ -14,6 +14,7 @@ class Player(models.Model):
   money = models.IntegerField(default=2000)
   position = models.IntegerField(default=0)
   is_in_jail = models.BooleanField(default=False)
+  get_out_of_jail_cards = models.IntegerField(default=0)
   is_active = models.BooleanField(default=True)
   created_at = models.DateTimeField(auto_now_add=True)
   updated_at = models.DateTimeField(auto_now=True)

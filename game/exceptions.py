@@ -66,6 +66,14 @@ class PlayerInJail(GameError):
   pass
 
 
+class NotInJail(GameError):
+  """Trying to pay bail or use a jail card while not in jail."""
+
+
+class NoJailCardsAvailable(GameError):
+  """Trying to use a Get Out of Jail Free card while holding none."""
+
+
 class PlayerBankrupt(GameError):
   pass
 

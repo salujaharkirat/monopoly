@@ -129,12 +129,11 @@ class GoToJailStrategy(CardStrategy):
 
 class GetOutOfJailStrategy(CardStrategy):
   def execute(self, player: Player, square: Square, game: Game, card: dict):
-    # Retaining the card needs per-player card storage
-    # (Player.get_out_of_jail_cards), which arrives with the jail rework.
-    # Registered now so drawing it stops crashing the roll.
+    player.get_out_of_jail_cards += 1
+    player.save(update_fields=['get_out_of_jail_cards'])
     return {
       'amount': 0,
-      'message': "Get Out of Jail Free - holding this card is not supported yet",
+      'message': "Get Out of Jail Free - keep this card until you need it",
     }
 
 

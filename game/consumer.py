@@ -131,6 +131,18 @@ class GameConsumer(AsyncWebsocketConsumer):
             'data': event['data']
         }))
 
+    async def bail_paid(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'bail_paid',
+            'data': event['data']
+        }))
+
+    async def jail_card_used(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'jail_card_used',
+            'data': event['data']
+        }))
+
     async def send_game_state(self):
         game_state = await DbUtils.get_game_state(self.game_id)
         await self.send(text_data=json.dumps({

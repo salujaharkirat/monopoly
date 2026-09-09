@@ -4,7 +4,7 @@ import random
 
 from django.db import transaction
 
-from game import turn_order
+from game import bank, turn_order
 from game.enums import SquareType
 from game.strategies.square_strategy import SquareStrategyFactory
 
@@ -15,7 +15,9 @@ from .exceptions import (
   InsufficientFunds,
   InvalidAction,
   InvalidGameState,
+  NoJailCardsAvailable,
   NotAuthorized,
+  NotInJail,
   NotPropertyOwner,
   NotYourTurn,
   PlayerBankrupt,
@@ -190,7 +192,11 @@ class GameService:
     if player.money < 0:
       raise PlayerBankrupt('Player is bankrupt', bankrupt=True)
 
-    if not is_doubles:
+    # Landing in jail ends the turn even on doubles - the doubles bonus never
+    # applies once you're sent to jail. player.is_in_jail is only True here if
+    # this roll just caused it (an already-jailed player never reaches this
+    # line - roll_dice rejects them earlier).
+    if not is_doubles or player.is_in_jail:
       turn_order.advance_turn(game)
 
     return {
@@ -207,6 +213,74 @@ class GameService:
         },
         'square_result': square_result,
         'game_state': GameDetailSerializer(game).data
+      }
+    }
+
+  @staticmethod
+  @service_result
+  @transaction.atomic
+  def pay_bail(game_id, player_id):
+    """Pay $50 to leave jail. Does not roll - the player still calls
+    roll_dice afterward, now unblocked."""
+    game = _get_game(game_id)
+    player = _get_player(player_id)
+
+    if game.state != Game.GameState.PLAYING:
+      raise InvalidGameState('Game is not in playing state')
+
+    current_player = turn_order.get_current_player(game)
+    if current_player is None or current_player.id != player.id:
+      raise NotYourTurn('Not your turn')
+
+    if not player.is_in_jail:
+      raise NotInJail('Player is not in jail')
+
+    if player.money < 50:
+      raise InsufficientFunds(f'Not enough money to pay $50 bail, have ${player.money}')
+
+    bank.transfer(player, None, 50)
+    player.is_in_jail = False
+    player.save(update_fields=['is_in_jail'])
+
+    return {
+      'success': True,
+      'message': f'{player.user.username} paid $50 bail and is out of jail',
+      'data': {
+        'player_money': player.money,
+      }
+    }
+
+  @staticmethod
+  @service_result
+  @transaction.atomic
+  def use_jail_card(game_id, player_id):
+    """Spend a Get Out of Jail Free card to leave jail. Does not roll - the
+    player still calls roll_dice afterward, now unblocked."""
+    game = _get_game(game_id)
+    player = _get_player(player_id)
+
+    if game.state != Game.GameState.PLAYING:
+      raise InvalidGameState('Game is not in playing state')
+
+    current_player = turn_order.get_current_player(game)
+    if current_player is None or current_player.id != player.id:
+      raise NotYourTurn('Not your turn')
+
+    if not player.is_in_jail:
+      raise NotInJail('Player is not in jail')
+
+    if player.get_out_of_jail_cards < 1:
+      raise NoJailCardsAvailable('No Get Out of Jail Free cards held')
+
+    player.get_out_of_jail_cards -= 1
+    player.is_in_jail = False
+    player.save(update_fields=['is_in_jail', 'get_out_of_jail_cards'])
+
+    return {
+      'success': True,
+      'message': f'{player.user.username} used a Get Out of Jail Free card',
+      'data': {
+        'get_out_of_jail_cards': player.get_out_of_jail_cards,
       }
     }
 

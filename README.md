@@ -65,6 +65,8 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 
 - [x]  Houses & Hotels
 - [ ]  Property cards view
+- [x] Buy house
+- [] Sell house
 
 ## **Phase 9: Special Squares**
 
@@ -73,7 +75,6 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 - [x]  Railroads (4, rent multiplies)
 - [x]  Utilities (Electric, Water)
 - [x]  Complete jail system (bail, doubles, 3 turns)
-- [ ]  Free Parking
 
 ## **Phase 10: Advanced Features ⏳**
 
@@ -98,11 +99,3 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 - **Cache:** Redis (Channels layer)
 
 ---
-
-## **Next Steps**
-
-1. **Houses & Hotels** - Building improvements
-2. **Chance & Community Chest** - Card system
-3. **Complete Jail System** - Full mechanics
-4. **Mortgage** - Property mortgaging
-5. **Testing & Deployment** - Production ready

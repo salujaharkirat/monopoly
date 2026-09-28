@@ -442,6 +442,93 @@ class GameService:
   @staticmethod
   @service_result
   @transaction.atomic
+  def sell_house(game_id, player_id, property_id, number_of_houses):
+    player = _get_player(player_id)
+    game = _get_game(game_id)
+
+    if not player.is_active:
+      raise PlayerBankrupt('Player is bankrupt')
+
+    try:
+      property = Property.objects.select_related('square', 'owner', 'square__color_group').get(id=property_id, game=game)
+    except Property.DoesNotExist:
+      raise PropertyNotFound('Property not found')
+
+    if property.square and property.square.square_type != SquareType.PROPERTY:
+      raise BuildRuleViolation(f"Cannot sell on {property.square.name} (not a property)")
+
+    if number_of_houses < 1 or number_of_houses > 5:
+      raise InvalidAction("number_of_houses must be between 1 and 5")
+
+    if property.owner is None or property.owner.id != player.id:
+      raise NotPropertyOwner(
+        f"Player {player.user.username} does not own {property.square.name}"
+      )
+
+    color_group = property.square.color_group
+    if color_group is None:
+      raise BuildRuleViolation(
+        f"{property.square.name} has no color group configured, so build rules cannot be checked"
+      )
+
+    owned_in_group = Property.objects.filter(
+        owner=player,
+        square__color_group=color_group,
+        game=game
+    ).count()
+    total_in_group = Property.objects.filter(
+        square__color_group=color_group,
+        game=game
+    ).count()
+
+    if total_in_group != owned_in_group:
+      raise BuildRuleViolation(
+        f"Must own all {color_group.name} properties to sell houses on {property.square.name}"
+      )
+
+    if property.houses - number_of_houses < 0:
+      raise BuildRuleViolation(
+        f"Cannot sell {number_of_houses} house(s) from {property.square.name} (current: {property.houses})"
+      )
+
+    # Legality before the payout, so an illegal sell reports the rule it
+    # breaks rather than the refund it would have received.
+    allowed, reason = GameService.can_evenly_sell(
+      color_group, game, property, number_of_houses
+    )
+    if not allowed:
+      raise BuildRuleViolation(reason)
+
+    if property.square.house_cost is None:
+      # Board misconfiguration, not something the player did. Loud on purpose,
+      # but legible rather than a bare TypeError on `None * n`.
+      raise ValueError(
+        f"Square {property.square.position} ({property.square.name}) has no "
+        f"house_cost; re-run `manage.py init_board` to backfill it"
+      )
+
+    sale_amount = (property.square.house_cost * number_of_houses) // 2
+
+    player.money += sale_amount
+    property.houses -= number_of_houses
+    player.save()
+    property.save()
+
+    return {
+      'success': True,
+      'message': f"Player {player.user.username} sold {number_of_houses} house(s) on property {property.square.name}",
+      'data': {
+        'property_id': property.id,
+        'property_name': property.square.name,
+        'houses': property.houses,
+        'sale_amount': sale_amount,
+        'player_money': player.money
+      }
+    }
+
+  @staticmethod
+  @service_result
+  @transaction.atomic
   def build_house(game_id, player_id, property_id, number_of_houses):
     player = _get_player(player_id)
     game = _get_game(game_id)
@@ -562,6 +649,42 @@ class GameService:
         f"Houses must be built evenly across {color_group.name}: "
         f"{property.square.name} has {property.houses} and the lowest in the group "
         f"is {lowest}, so you can add at most {headroom} here"
+      )
+
+    return True, ''
+
+  @staticmethod
+  def can_evenly_sell(color_group, game, property, number_of_houses):
+    """
+    Mirror of `can_evenly_construct`: houses must be sold from whichever
+    property has the most, so no property falls more than one house behind
+    the rest of the group while houses are being sold off.
+
+    Returns `(allowed, reason)`.
+    """
+    if color_group is None:
+      return False, 'Property has no color group configured'
+
+    others = list(
+      Property.objects.filter(
+        square__color_group=color_group,
+        game=game,
+      ).exclude(id=property.id).values_list('houses', flat=True)
+    )
+
+    if not others:
+      # A single-property group has nothing to stay even with.
+      return True, ''
+
+    highest = max(others)
+    lowest_before_last_house_sold = property.houses - number_of_houses + 1
+
+    if lowest_before_last_house_sold < highest:
+      headroom = max(0, property.houses - highest + 1)
+      return False, (
+        f"Houses must be sold evenly across {color_group.name}: "
+        f"{property.square.name} has {property.houses} and the highest in the group "
+        f"is {highest}, so you can sell at most {headroom} here"
       )
 
     return True, ''

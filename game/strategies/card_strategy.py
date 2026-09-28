@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from game import bank, bankruptcy
+from game import bank, bankruptcy, jail
 from game.models import Player, Square, Game, Property
 from game.enums import CardType
 from game.rent_calculator import RentCalculator
@@ -123,13 +123,11 @@ class MoveBackStrategy(CardStrategy):
 
 class GoToJailStrategy(CardStrategy):
   def execute(self, player: Player, square: Square, game: Game, card: dict):
-    player.position = 10
-    player.is_in_jail = True
-    player.save()
+    jail.send_to_jail(player)
     return {
       'amount': 0,
       'message': "Go to Jail!",
-      'new_position': 10,
+      'new_position': jail.JAIL_POSITION,
     }
 
 

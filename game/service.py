@@ -4,7 +4,7 @@ import random
 
 from django.db import transaction
 
-from game import bank, turn_order, bankruptcy
+from game import bank, turn_order, bankruptcy, jail
 from game.game_over import check_game_over
 from game.enums import SquareType
 from game.strategies.square_strategy import SquareStrategyFactory
@@ -175,9 +175,35 @@ class GameService:
     dice2 = random.randint(1, 6)
     total = dice1 + dice2
     is_doubles = dice1 == dice2
+    old_position = player.position
+
+    player.doubles_count = player.doubles_count + 1 if is_doubles else 0
+
+    if is_doubles and player.doubles_count >= 3:
+      jail.send_to_jail(player)
+      turn_order.advance_turn(game)
+
+      return {
+        'success': True,
+        'data': {
+          'dice': {
+            'dice1': dice1,
+            'dice2': dice2,
+            'is_doubles': is_doubles,
+            'old_position': old_position,
+            'new_position': jail.JAIL_POSITION,
+            'passed_go': False,
+            'total': total,
+          },
+          'square_result': {
+            'message': 'Rolled doubles 3 times in a row - go to Jail!',
+            'sent_to_jail': True,
+          },
+          'game_state': GameDetailSerializer(game).data
+        }
+      }
 
     # Calculate new position
-    old_position = player.position
     new_position = (old_position + total) % 40
 
     # Check if passed GO

@@ -15,6 +15,7 @@ class Player(models.Model):
   position = models.IntegerField(default=0)
   is_in_jail = models.BooleanField(default=False)
   get_out_of_jail_cards = models.IntegerField(default=0)
+  doubles_count = models.IntegerField(default=0)
   is_active = models.BooleanField(default=True)
   created_at = models.DateTimeField(auto_now_add=True)
   updated_at = models.DateTimeField(auto_now=True)

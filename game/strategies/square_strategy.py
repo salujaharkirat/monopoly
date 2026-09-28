@@ -1,7 +1,7 @@
 import random
 from abc import ABC, abstractmethod
 
-from game import bank, bankruptcy
+from game import bank, bankruptcy, jail
 from game.rent_calculator import RentCalculator
 from game.models import Player, Square, Game, Property
 
@@ -102,12 +102,10 @@ class TaxSquareStrategy(SquareStrategy):
 
 class GoToJailSquareStrategy(SquareStrategy):
   def execute(self, player: Player, square: Square, game: Game, dice_roll: int = 0):
-    player.position = 10
-    player.is_in_jail = True
-    player.save()
+    jail.send_to_jail(player)
     return {
       'message': 'Go to Jail!',
-      'new_position': 10,
+      'new_position': jail.JAIL_POSITION,
     }
 
 

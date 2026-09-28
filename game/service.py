@@ -595,7 +595,7 @@ class GameService:
 
     game.players.remove(player)
     if game.created_by.id == player_id and game.players.exists():
-      new_creator = game.players.first()
+      new_creator = game.players.filter(is_active=True).first()
       if new_creator:
         game.created_by = new_creator
         game.save()

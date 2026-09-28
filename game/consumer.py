@@ -149,3 +149,9 @@ class GameConsumer(AsyncWebsocketConsumer):
             'type': 'game_state',
             'data': game_state
         }))
+
+    async def game_left(self, event): 
+        await self.send(text_data=json.dumps({
+            'type': 'game_left',
+            'data': event['data']
+        }))

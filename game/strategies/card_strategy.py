@@ -190,11 +190,8 @@ class PayEachPlayerStrategy(CardStrategy):
       bank.transfer(player, p, per_player_amount)
       total_paid += per_player_amount
 
-    if is_bankrupt and player.is_active:
-      player.is_active = False
-      player.save()
-
     if is_bankrupt:
+      bankruptcy.mark_bankrupt(player)
       return {
         'amount': total_paid,
         'is_bankrupt': True,

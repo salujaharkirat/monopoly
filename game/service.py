@@ -5,6 +5,7 @@ import random
 from django.db import transaction
 
 from game import bank, turn_order, bankruptcy
+from game.game_over import check_game_over
 from game.enums import SquareType
 from game.strategies.square_strategy import SquareStrategyFactory
 
@@ -201,7 +202,8 @@ class GameService:
         'success': False,
         'data': {},
         'is_bankrupt': True,
-        'message': square_result['message']
+        'message': square_result['message'],
+        **(check_game_over(game) or {})
       }
 
     # Landing in jail ends the turn even on doubles - the doubles bonus never
@@ -253,7 +255,8 @@ class GameService:
       return {
         'success': False,
         'message': f'{player.user.username} went bankrupt playing ${result['paid_amount']}',
-        'data': {}
+        'data': {},
+        **(check_game_over(game) or {})
       }
 
     # bank.transfer(player, None, 50)
@@ -581,16 +584,18 @@ class GameService:
           'game_deleted': True
         }
 
-    if game.state == Game.GameState.PLAYING and game.players.count() == 1:
-      game.state = Game.GameState.FINISHED
-      game.save()
-
-      winner = game.players.first()
+    game_over = check_game_over(game)
+    if game_over:
+      winner = game_over['winner']
+      message = (
+        f'{player.user.username} left the game. {winner} wins!'
+        if winner else
+        f'{player.user.username} left the game. No players remain.'
+      )
       return {
         'success': True,
-        'message': f'{player.user.username} left the game. {winner.user.username} wins!',
-        'game_ended': True,
-        'winner': winner.user.username
+        'message': message,
+        **game_over
       }
 
     game.save()

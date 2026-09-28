@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from . import turn_order
-from .models import Game, Player, Square
+from .models import Game, Player, Square, Property
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
@@ -58,27 +58,6 @@ class GameSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
 
-class GameDetailSerializer(serializers.ModelSerializer):
-    players = PlayerSerializer(many=True, read_only=True)
-    player_count = serializers.IntegerField(source='players.count', read_only=True)
-    created_by_username = serializers.CharField(source='created_by.user.username', read_only=True)
-    current_player = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Game
-        fields = [
-            'id', 'name', 'state', 'max_players', 'min_players',
-            'players', 'player_count', 'current_player_index',
-            'turn_number', 'created_by', 'created_by_username',
-            'created_at', 'updated_at', 'current_player'
-        ]
-    
-    def get_current_player(self, obj):
-        current = turn_order.get_current_player(obj)
-        if current:
-            return PlayerSerializer(current).data
-        return None
-
 class CreateGameSerializer(serializers.ModelSerializer):
     class Meta:
         model = Game
@@ -89,12 +68,19 @@ class SquareSerializer(serializers.ModelSerializer):
         model = Square
         fields = '__all__'
 
+class PropertySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Property
+        fields = ['id', 'square', 'owner', 'houses', 'is_mortgaged']
+
+
 class GameDetailSerializer(serializers.ModelSerializer):
     players = PlayerSerializer(many=True, read_only=True)
     player_count = serializers.IntegerField(source='players.count', read_only=True)
     created_by_username = serializers.CharField(source='created_by.user.username', read_only=True)
     current_player = serializers.SerializerMethodField()
     squares = serializers.SerializerMethodField()
+    properties = serializers.SerializerMethodField()
     
     class Meta:
         model = Game
@@ -102,7 +88,7 @@ class GameDetailSerializer(serializers.ModelSerializer):
             'id', 'name', 'state', 'max_players', 'min_players',
             'players', 'player_count', 'current_player_index',
             'turn_number', 'created_by', 'created_by_username',
-            'created_at', 'updated_at', 'current_player', 'squares'
+            'created_at', 'updated_at', 'current_player', 'squares', 'properties'
         ]
     
     def get_current_player(self, obj):
@@ -114,3 +100,7 @@ class GameDetailSerializer(serializers.ModelSerializer):
     def get_squares(self, obj):
         squares = Square.objects.all().order_by('position')
         return SquareSerializer(squares, many=True).data
+
+    def get_properties(self, obj):
+        properties = Property.objects.filter(game=obj).select_related('square', 'owner')
+        return PropertySerializer(properties, many=True).data

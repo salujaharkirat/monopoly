@@ -4,24 +4,6 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 
 ---
 
-## **📊 Progress: 55% Complete**
-
-| **Phase** | **Status** | **Progress** |
-| --- | --- | --- |
-| Project Setup & Auth | ✅ Complete | 100% |
-| Core Models | ✅ Complete | 100% |
-| Game APIs | ✅ Complete | 100% |
-| WebSocket Setup | ✅ Complete | 100% |
-| React Frontend | ✅ Complete | 100% |
-| Game Board & UI |  ✅ Complete | 95% |
-| Core Game Logic | ✅ Complete | 100% |
-| Special Squares | 🔄 In Progress | 80% |
-| Property Management | ⏳ Pending | 0% |
-| Advanced Features | ⏳ Pending | 0% |
-| Polish & Deploy | ⏳ Pending | 0% |
-
----
-
 ## **Phase 1: Project Setup & Authentication**
 
 - [x]  Django + DRF setup
@@ -81,9 +63,7 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 
 ## **Phase 8: Property Management**
 
-- [ ]  Houses & Hotels
-- [ ]  Mortgage
-- [ ]  Property trading
+- [x]  Houses & Hotels
 - [ ]  Property cards view
 
 ## **Phase 9: Special Squares**
@@ -92,13 +72,13 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 - [x]  Community Chest cards (16 cards)
 - [x]  Railroads (4, rent multiplies)
 - [x]  Utilities (Electric, Water)
-- [ ]  Complete jail system (bail, doubles, 3 turns)
+- [x]  Complete jail system (bail, doubles, 3 turns)
 - [ ]  Free Parking
 
 ## **Phase 10: Advanced Features ⏳**
 
-- [ ]  Bankruptcy (player elimination)
-- [ ]  Game over & winner
+- [x]  Bankruptcy (player elimination)
+- [x]  Game over & winner
 
 ## **Phase 11: Polish & Deploy ⏳**
 

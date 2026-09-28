@@ -1,7 +1,7 @@
 import random
 from abc import ABC, abstractmethod
 
-from game import bank
+from game import bank, bankruptcy
 from game.rent_calculator import RentCalculator
 from game.models import Player, Square, Game, Property
 
@@ -68,28 +68,34 @@ class PropertySquareStrategy(SquareStrategy):
 
     rent = RentCalculator.calculate_rent(game, property, dice_roll)
 
-    if player.money < rent:
-      # Partial payment and bankruptcy are handled by the bankruptcy rework;
-      # for now the debt is reported but not collected.
+    result = bankruptcy.settle_debt(player, property.owner, rent)
+
+    if result['is_bankrupt']:
       return {
-        'message': f"{player.user.username} cannot pay ${rent} rent to {property.owner.user.username}",
-        'rent_due': rent,
+        'is_bankrupt': True,
+        'message': f"Went bankrupt while paying ${rent} paid ${result['paid_amount']}"
       }
 
-    bank.transfer(player, property.owner, rent)
-
     return {
-      'message': f"Paid ${rent} rent to {property.owner.user.username}",
+      'message': f"Paid ${result['paid_amount']} rent to {property.owner.user.username}",
       'rent_paid': rent,
     }
 
 
 class TaxSquareStrategy(SquareStrategy):
   def execute(self, player: Player, square: Square, game: Game, dice_roll: int = 0):
+    # Bankruptcy impact
     tax_amount = square.tax_amount or 100
-    bank.transfer(player, None, tax_amount)
+    result = bankruptcy.settle_debt(player, None, tax_amount)
+
+    if result['is_bankrupt']:
+      return {
+        'message': f"Went bankrupt while paying ${tax_amount} paid ${result['paid_amount']}",
+        'amount': result['paid_amount']
+      }
+    
     return {
-      'message': f"Paid ${tax_amount} in taxes",
+      'message': f"Paid ${result['paid_amount']} in taxes",
       'amount': tax_amount,
     }
 

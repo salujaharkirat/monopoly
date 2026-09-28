@@ -17,6 +17,10 @@ def transfer(from_player, to_player, amount):
   if amount == 0:
     return
 
+
+  if from_player is not None and amount > from_player.money:
+    amount = from_player.money
+
   if from_player is not None:
     Player.objects.filter(id=from_player.id).update(money=F('money') - amount)
     from_player.money -= amount

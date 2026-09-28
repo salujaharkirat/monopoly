@@ -4,7 +4,7 @@ import random
 
 from django.db import transaction
 
-from game import bank, turn_order
+from game import bank, turn_order, bankruptcy
 from game.enums import SquareType
 from game.strategies.square_strategy import SquareStrategyFactory
 
@@ -81,6 +81,9 @@ class GameService:
     if player != game.created_by:
       raise NotAuthorized('Only creator can start the game')
 
+    if not player.is_active:
+      raise PlayerBankrupt('Player is bankrupt, cannot start game')
+
     can_start, error_message = game.can_start(player)
     if not can_start:
       raise InvalidGameState(error_message)
@@ -148,6 +151,7 @@ class GameService:
       game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)
     except Game.DoesNotExist:
       raise GameNotFound('Game not found')
+    
     player = _get_player(player_id)
 
     if game.state != Game.GameState.PLAYING:
@@ -162,6 +166,9 @@ class GameService:
 
     if player.is_in_jail:
       raise PlayerInJail('Player is in jail. Pay $50 or use get out of jail card')
+
+    if not player.is_active:
+      raise PlayerBankrupt('Player is bankrupt')
 
     dice1 = random.randint(1, 6)
     dice2 = random.randint(1, 6)
@@ -189,8 +196,13 @@ class GameService:
 
     square_result = GameService.handle_square_landing(player, square, game, total)
 
-    if player.money < 0:
-      raise PlayerBankrupt('Player is bankrupt', bankrupt=True)
+    if square_result.get('is_bankrupt', False):
+      return {
+        'success': False,
+        'data': {},
+        'is_bankrupt': True,
+        'message': square_result['message']
+      }
 
     # Landing in jail ends the turn even on doubles - the doubles bonus never
     # applies once you're sent to jail. player.is_in_jail is only True here if
@@ -235,10 +247,16 @@ class GameService:
     if not player.is_in_jail:
       raise NotInJail('Player is not in jail')
 
-    if player.money < 50:
-      raise InsufficientFunds(f'Not enough money to pay $50 bail, have ${player.money}')
+    result = bankruptcy.settle_debt(player, None, 50)
 
-    bank.transfer(player, None, 50)
+    if result['is_bankrupt']:
+      return {
+        'success': False,
+        'message': f'{player.user.username} went bankrupt playing ${result['paid_amount']}',
+        'data': {}
+      }
+
+    # bank.transfer(player, None, 50)
     player.is_in_jail = False
     player.save(update_fields=['is_in_jail'])
 
@@ -265,6 +283,9 @@ class GameService:
     current_player = turn_order.get_current_player(game)
     if current_player is None or current_player.id != player.id:
       raise NotYourTurn('Not your turn')
+
+    if not player.is_active:
+      raise PlayerBankrupt('Player is bankrupt')
 
     if not player.is_in_jail:
       raise NotInJail('Player is not in jail')
@@ -333,7 +354,11 @@ class GameService:
     if price is None:
       raise PropertyNotPurchasable(f'{property_obj.square.name} does not have a valid price')
 
+    if not player.is_active:
+      raise PlayerBankrupt('Player is bankrupt')
+    
     if player.money < price:
+      # TODO: Add auctioning later
       raise InsufficientFunds(
         f'Not enough money! Need ${price}, have ${player.money}'
       )
@@ -391,6 +416,10 @@ class GameService:
   def build_house(game_id, player_id, property_id, number_of_houses):
     player = _get_player(player_id)
     game = _get_game(game_id)
+
+    if not player.is_active:
+      raise PlayerBankrupt('Player is bankrupt')
+
     try:
       property = Property.objects.select_related('square', 'owner', 'square__color_group').get(id=property_id, game=game)
     except Property.DoesNotExist:
@@ -518,6 +547,9 @@ class GameService:
       raise GameNotFound('Game not found')
     player = _get_player(player_id)
 
+    if not player.is_active:
+      raise PlayerBankrupt('Player is bankrupt')
+
     if not game.players.filter(id=player.id).exists():
       raise InvalidAction('You are not in this game')
 
@@ -549,7 +581,7 @@ class GameService:
           'game_deleted': True
         }
 
-    if game.state == Game.GameState.PLAYING and game.players.count() < 2:
+    if game.state == Game.GameState.PLAYING and game.players.count() == 1:
       game.state = Game.GameState.FINISHED
       game.save()
 

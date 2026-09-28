@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from game import bank
+from game import bank, bankruptcy
 from game.models import Player, Square, Game, Property
 from game.enums import CardType
 from game.rent_calculator import RentCalculator
@@ -33,15 +33,18 @@ class CollectMoneyStrategy(CardStrategy):
 class PayMoneyStrategy(CardStrategy):
   def execute(self, player: Player, square: Square, game: Game, card: dict):
     amount = card.get('amount', 0)
-    if player.money < amount:
+    result = bankruptcy.settle_debt(player, None, amount)
+
+    if result['is_bankrupt']:
       return {
-        'amount': 0,
-        'message': f"Not enough money to pay ${amount}"
+        'amount': result['paid_amount'],
+        'message': f"Went bankrupt paying ${amount} (paid ${result['paid_amount']})",
+        'is_bankrupt': result['is_bankrupt']
       }
-    bank.transfer(player, None, amount)
+    
     return {
-      'amount': amount,
-      'message': f"Paid ${amount}"
+      'amount': result['paid_amount'],
+      'message': f"Paid ${result['paid_amount']}"
     }
 
 
@@ -69,6 +72,7 @@ class AdvanceToPropertyStrategy(CardStrategy):
       'property_name': property_name,
       'can_buy': False,
       'price': 0,
+      'is_bankrupt': False
     }
 
     # Moving forward past GO pays $200; moving to a lower position means the
@@ -87,13 +91,15 @@ class AdvanceToPropertyStrategy(CardStrategy):
 
     if property.owner and property.owner.id != player.id:
       rent = RentCalculator.calculate_rent(game, property)
-      if player.money < rent:
-        result['message'] += f" - not enough money to pay ${rent} rent"
-        return result
+      bankruptcy_result = bankruptcy.settle_debt(player, property.owner, rent)
 
-      bank.transfer(player, property.owner, rent)
-      result['amount'] = rent
-      result['message'] += f" - Paid ${rent} rent to {property.owner.user.username}"
+      if bankruptcy_result['is_bankrupt']:
+        result['message'] += f"Went bankrupt paying ${rent} (paid ${bankruptcy_result['paid_amount']})"
+        result['is_bankrupt'] = True
+        return result
+      
+      result['amount'] = bankruptcy_result['paid_amount']
+      result['message'] += f" - Paid ${bankruptcy_result['paid_amount']} rent to {property.owner.user.username}"
     elif not property.owner:
       result['can_buy'] = True
       if property.square:
@@ -153,32 +159,53 @@ class RepairsStrategy(CardStrategy):
     if total_cost == 0:
       return {'amount': 0, 'message': "No buildings to repair"}
 
-    paid = min(total_cost, player.money)
-    bank.transfer(player, None, paid)
+    # Bankruptcy impact
+    result = bankruptcy.settle_debt(player, None, total_cost)
+
+    if result['is_bankrupt']:
+      return {
+        'amount': result['paid_amount'],
+        'is_bankrupt': True,
+        'message': f"Went bankrupt paying ${total_cost} (paid ${result['paid_amount']})"
+      }
 
     return {
-      'amount': paid,
+      'amount': result['paid_amount'],
       'message': f"Repairs on {houses} house(s) and {hotels} hotel(s) cost ${total_cost}",
     }
 
 
 class PayEachPlayerStrategy(CardStrategy):
   def execute(self, player: Player, square: Square, game: Game, card: dict):
+    # Bankruptcy impact
     amount = card.get('amount', 0)
     total_paid = 0
-    for p in game.players.all():
-      if player.id == p.id:
-        continue
-      payable = min(amount, player.money)
-      if payable <= 0:
-        break
-      bank.transfer(player, p, payable)
-      total_paid += payable
+    other_players = [p for p in game.players.all() if p.id != player.id]
+    total_amount = amount * len(other_players)
 
+    is_bankrupt = not bankruptcy.has_sufficient_amount(player, total_amount)
+    per_player_amount = (player.money // len(other_players)) if is_bankrupt else amount
+
+    for p in other_players:
+      bank.transfer(player, p, per_player_amount)
+      total_paid += per_player_amount
+
+    if is_bankrupt and player.is_active:
+      player.is_active = False
+      player.save()
+
+    if is_bankrupt:
+      return {
+        'amount': total_paid,
+        'is_bankrupt': True,
+        'message': f"Went bankrupt paying ${total_amount} to other players (paid ${total_paid})",
+        'paid_to': [p.user.username for p in other_players]
+      }
+    
     return {
       'amount': total_paid,
       'message': f"Paid ${total_paid} total to other players",
-      'paid_to': [p.user.username for p in game.players.all() if p.id != player.id]
+      'paid_to': [p.user.username for p in other_players]
     }
 
 

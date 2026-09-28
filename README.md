@@ -98,9 +98,7 @@ A real-time multiplayer Monopoly game with Django backend and React frontend.
 ## **Phase 10: Advanced Features ⏳**
 
 - [ ]  Bankruptcy (player elimination)
-- [ ]  Auction system
 - [ ]  Game over & winner
-- [ ]  Reconnection support
 
 ## **Phase 11: Polish & Deploy ⏳**
 

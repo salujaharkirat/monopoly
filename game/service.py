@@ -171,6 +171,9 @@ class GameService:
     if not player.is_active:
       raise PlayerBankrupt('Player is bankrupt')
 
+    if player.has_rolled:
+      raise InvalidAction('Already rolled this turn - end your turn before rolling again')
+
     dice1 = random.randint(1, 6)
     dice2 = random.randint(1, 6)
     total = dice1 + dice2
@@ -178,6 +181,9 @@ class GameService:
     old_position = player.position
 
     player.doubles_count = player.doubles_count + 1 if is_doubles else 0
+    # Doubles earn another roll this same turn; anything else uses it up -
+    # end_turn clears this again once the player is done.
+    player.has_rolled = not is_doubles
 
     if is_doubles and player.doubles_count >= 3:
       jail.send_to_jail(player)
@@ -224,6 +230,7 @@ class GameService:
     square_result = GameService.handle_square_landing(player, square, game, total)
 
     if square_result.get('is_bankrupt', False):
+      turn_order.advance_turn(game)
       return {
         'success': False,
         'data': {},
@@ -236,7 +243,7 @@ class GameService:
     # applies once you're sent to jail. player.is_in_jail is only True here if
     # this roll just caused it (an already-jailed player never reaches this
     # line - roll_dice rejects them earlier).
-    if not is_doubles or player.is_in_jail:
+    if player.is_in_jail:
       turn_order.advance_turn(game)
 
     return {
@@ -278,6 +285,7 @@ class GameService:
     result = bankruptcy.settle_debt(player, None, 50)
 
     if result['is_bankrupt']:
+      turn_order.advance_turn(game)
       return {
         'success': False,
         'message': f'{player.user.username} went bankrupt playing ${result['paid_amount']}',
@@ -285,7 +293,6 @@ class GameService:
         **(check_game_over(game) or {})
       }
 
-    # bank.transfer(player, None, 50)
     player.is_in_jail = False
     player.save(update_fields=['is_in_jail'])
 
@@ -405,7 +412,6 @@ class GameService:
 
     player.money -= price
     property_obj.set_owner(player)
-    property_obj.save()
     player.save()
 
     return {
@@ -422,15 +428,30 @@ class GameService:
   @staticmethod
   @service_result
   @transaction.atomic
-  def end_turn(game_id):
+  def end_turn(game_id, player_id):
     """End current turn"""
     try:
       game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)
     except Game.DoesNotExist:
       raise GameNotFound('Game not found')
 
+    player = _get_player(player_id)
+
+    if game.state != Game.GameState.PLAYING:
+      raise InvalidGameState('Game is not in playing state')
+
     if game.players.count() == 0:
       raise InvalidGameState('Game has no players')
+
+    current_player = turn_order.get_current_player(game)
+    if current_player is None:
+      raise PlayerNotFound('No current player found')
+
+    if current_player.id != player.id:
+      raise NotYourTurn('Not your turn')
+
+    player.has_rolled = False
+    player.save(update_fields=['has_rolled'])
 
     next_player = turn_order.advance_turn(game)
 
@@ -716,7 +737,7 @@ class GameService:
         prop.is_mortgaged = False
         prop.save()
 
-    game.players.remove(player)
+    turn_order.remove_player(game, player)
     if game.created_by.id == player_id and game.players.exists():
       new_creator = game.players.filter(is_active=True).first()
       if new_creator:

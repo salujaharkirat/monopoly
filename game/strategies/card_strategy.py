@@ -113,6 +113,7 @@ class MoveBackStrategy(CardStrategy):
   def execute(self, player: Player, square: Square, game: Game, card: dict):
     spaces = card.get('spaces', 0)
     player.position = (player.position - spaces) % 40
+    # TODO: Add rent, tax, go to jail
     player.save()
     return {
       'amount': 0,

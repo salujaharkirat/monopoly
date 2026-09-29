@@ -12,7 +12,8 @@ async def handle_end_turn(consumer, data: dict):
   if game is None:
     raise GameNotFound('Game not found')
 
-  result = await handle_end_turn_async(game.id)
+  player = await DbUtils.get_player(data.get('user'))
+  result = await handle_end_turn_async(game.id, player.id)
 
   if not result['success']:
     await consumer.send_error(result['message'])
@@ -34,5 +35,5 @@ async def handle_end_turn(consumer, data: dict):
 
 
 @database_sync_to_async
-def handle_end_turn_async(game_id):
-  return GameService.end_turn(game_id)
+def handle_end_turn_async(game_id, player_id):
+  return GameService.end_turn(game_id, player_id)

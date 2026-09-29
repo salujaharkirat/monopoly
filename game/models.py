@@ -16,6 +16,7 @@ class Player(models.Model):
   is_in_jail = models.BooleanField(default=False)
   get_out_of_jail_cards = models.IntegerField(default=0)
   doubles_count = models.IntegerField(default=0)
+  has_rolled = models.BooleanField(default=False)
   is_active = models.BooleanField(default=True)
   created_at = models.DateTimeField(auto_now_add=True)
   updated_at = models.DateTimeField(auto_now=True)
@@ -69,6 +70,9 @@ class Game(models.Model):
     
     if not player.is_active:
        return False, "Player not active"
+
+    if self.players.count() < self.min_players:
+       return False, f"Need {self.min_players} players to start game"
     
     return True, "Can start"
   
@@ -86,25 +90,6 @@ class Game(models.Model):
     self.save()
 
     return self
-
-  def get_current_player(self):
-    """Get current player"""
-    players = list(self.players.all())
-    if not players:
-        return None
-    return players[self.current_player_index]
-  
-  def next_turn(self):
-    if self.state != self.GameState.PLAYING:
-        raise ValidationError("Game is not in playing state")
-
-    player_count = self.players.count()
-    self.current_player_index = (self.current_player_index + 1) % player_count
-    self.turn_number += 1
-    self.save()
-
-    return self.get_current_player()
-
 
 class ColorGroup(models.Model):
    name = models.CharField(max_length=50)

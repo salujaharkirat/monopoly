@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from . import turn_order
-from .models import Game, Player, Square, Property
+from .models import Game, Player, GamePlayer, Square, Property
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
@@ -39,12 +39,18 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name']
 
 class PlayerSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    username = serializers.CharField(source='user.username', read_only=True)
-    
+    """
+    Serializes a `GamePlayer` - one account's seat in one game. `player_id`
+    (the durable account id) is kept alongside `id` (this seat's row id) so
+    a consumer relying on `id` meaning "the account" isn't silently broken.
+    """
+    user = UserSerializer(source='player.user', read_only=True)
+    username = serializers.CharField(source='player.user.username', read_only=True)
+    player_id = serializers.IntegerField(source='player.id', read_only=True)
+
     class Meta:
-        model = Player
-        fields = ['id', 'user', 'username', 'money', 'position', 'is_in_jail', 'get_out_of_jail_cards', 'is_active']
+        model = GamePlayer
+        fields = ['id', 'player_id', 'user', 'username', 'money', 'position', 'is_in_jail', 'get_out_of_jail_cards', 'is_active']
 
 class GameSerializer(serializers.ModelSerializer):
     player_count = serializers.IntegerField(source='players.count', read_only=True)
@@ -75,7 +81,7 @@ class PropertySerializer(serializers.ModelSerializer):
 
 
 class GameDetailSerializer(serializers.ModelSerializer):
-    players = PlayerSerializer(many=True, read_only=True)
+    players = PlayerSerializer(many=True, read_only=True, source='game_players')
     player_count = serializers.IntegerField(source='players.count', read_only=True)
     created_by_username = serializers.CharField(source='created_by.user.username', read_only=True)
     current_player = serializers.SerializerMethodField()

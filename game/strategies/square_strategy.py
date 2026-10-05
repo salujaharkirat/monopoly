@@ -2,8 +2,9 @@ import random
 from abc import ABC, abstractmethod
 
 from game import bank, bankruptcy, jail
+from game.game_player import resolve as resolve_game_player
 from game.rent_calculator import RentCalculator
-from game.models import Player, Square, Game, Property
+from game.models import GamePlayer, Square, Game, Property
 
 from game.constants import CHANCE_CARDS, COMMUNITY_CHEST_CARDS
 from game.strategies.card_strategy import CardStrategyFactory
@@ -19,7 +20,7 @@ class SquareStrategy(ABC):
   """
 
   @abstractmethod
-  def execute(self, player: Player, square: Square, game: Game, dice_roll: int = 0):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, dice_roll: int = 0):
     ...
 
 
@@ -29,21 +30,21 @@ class NoOpSquareStrategy(SquareStrategy):
   def __init__(self, message):
     self._message = message
 
-  def execute(self, player: Player, square: Square, game: Game, dice_roll: int = 0):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, dice_roll: int = 0):
     return {'message': self._message}
 
 
 class GoSquareStrategy(SquareStrategy):
-  def execute(self, player: Player, square: Square, game: Game, dice_roll: int = 0):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, dice_roll: int = 0):
     return {
-      'message': f"{player.user.username} landed on GO"
+      'message': f"{game_player.player.user.username} landed on GO"
     }
 
 
 class PropertySquareStrategy(SquareStrategy):
   """Handles properties, railroads and utilities - anything ownable."""
 
-  def execute(self, player: Player, square: Square, game: Game, dice_roll: int = 0):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, dice_roll: int = 0):
     property = Property.objects.select_related('square', 'owner').get(
       square=square, game=game
     )
@@ -56,7 +57,7 @@ class PropertySquareStrategy(SquareStrategy):
         'property_id': property.id,
       }
 
-    if property.owner.id == player.id:
+    if property.owner.id == game_player.player.id:
       return {
         'message': f"You already own {square.name}"
       }
@@ -67,8 +68,9 @@ class PropertySquareStrategy(SquareStrategy):
       }
 
     rent = RentCalculator.calculate_rent(game, property, dice_roll)
+    owner_game_player = resolve_game_player(game, property.owner)
 
-    result = bankruptcy.settle_debt(player, property.owner, rent)
+    result = bankruptcy.settle_debt(game_player, owner_game_player, rent)
 
     if result['is_bankrupt']:
       return {
@@ -83,17 +85,17 @@ class PropertySquareStrategy(SquareStrategy):
 
 
 class TaxSquareStrategy(SquareStrategy):
-  def execute(self, player: Player, square: Square, game: Game, dice_roll: int = 0):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, dice_roll: int = 0):
     # Bankruptcy impact
     tax_amount = square.tax_amount or 100
-    result = bankruptcy.settle_debt(player, None, tax_amount)
+    result = bankruptcy.settle_debt(game_player, None, tax_amount)
 
     if result['is_bankrupt']:
       return {
         'message': f"Went bankrupt while paying ${tax_amount} paid ${result['paid_amount']}",
         'amount': result['paid_amount']
       }
-    
+
     return {
       'message': f"Paid ${result['paid_amount']} in taxes",
       'amount': tax_amount,
@@ -101,8 +103,8 @@ class TaxSquareStrategy(SquareStrategy):
 
 
 class GoToJailSquareStrategy(SquareStrategy):
-  def execute(self, player: Player, square: Square, game: Game, dice_roll: int = 0):
-    jail.send_to_jail(player)
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, dice_roll: int = 0):
+    jail.send_to_jail(game_player)
     return {
       'message': 'Go to Jail!',
       'new_position': jail.JAIL_POSITION,
@@ -125,10 +127,10 @@ class CardSquareStrategy(SquareStrategy):
   def draw(self):
     return random.choice(self._deck)
 
-  def execute(self, player: Player, square: Square, game: Game, dice_roll: int = 0):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, dice_roll: int = 0):
     card = self.draw()
     strategy = CardStrategyFactory.get_strategy(card.get('type'))
-    outcome = strategy.execute(player, square, game, card)
+    outcome = strategy.execute(game_player, square, game, card)
 
     card_name = card.get('name', 'Card')
     description = card.get('description', '')

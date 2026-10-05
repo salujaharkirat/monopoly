@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 
 from game import bank, bankruptcy, jail
-from game.models import Player, Square, Game, Property
+from game.game_player import resolve as resolve_game_player
+from game.models import GamePlayer, Square, Game, Property
 from game.enums import CardType
 from game.rent_calculator import RentCalculator
 
@@ -16,14 +17,14 @@ class CardStrategy(ABC):
   """
 
   @abstractmethod
-  def execute(self, player: Player, square: Square, game: Game, card: dict):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
     ...
 
 
 class CollectMoneyStrategy(CardStrategy):
-  def execute(self, player: Player, square: Square, game: Game, card: dict):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
     amount = card.get('amount', 0)
-    bank.transfer(None, player, amount)
+    bank.transfer(None, game_player, amount)
     return {
       'amount': amount,
       'message': f"Collected ${amount}"
@@ -31,9 +32,9 @@ class CollectMoneyStrategy(CardStrategy):
 
 
 class PayMoneyStrategy(CardStrategy):
-  def execute(self, player: Player, square: Square, game: Game, card: dict):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
     amount = card.get('amount', 0)
-    result = bankruptcy.settle_debt(player, None, amount)
+    result = bankruptcy.settle_debt(game_player, None, amount)
 
     if result['is_bankrupt']:
       return {
@@ -41,7 +42,7 @@ class PayMoneyStrategy(CardStrategy):
         'message': f"Went bankrupt paying ${amount} (paid ${result['paid_amount']})",
         'is_bankrupt': result['is_bankrupt']
       }
-    
+
     return {
       'amount': result['paid_amount'],
       'message': f"Paid ${result['paid_amount']}"
@@ -49,10 +50,10 @@ class PayMoneyStrategy(CardStrategy):
 
 
 class AdvanceToGoStrategy(CardStrategy):
-  def execute(self, player: Player, square: Square, game: Game, card: dict):
-    player.position = 0
-    player.save(update_fields=['position'])
-    bank.transfer(None, player, 200)
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
+    game_player.position = 0
+    game_player.save(update_fields=['position'])
+    bank.transfer(None, game_player, 200)
     return {
       'amount': 200,
       'message': "Advanced to GO and collected $200"
@@ -60,10 +61,10 @@ class AdvanceToGoStrategy(CardStrategy):
 
 
 class AdvanceToPropertyStrategy(CardStrategy):
-  def execute(self, player: Player, square: Square, game: Game, card: dict):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
     target_position = card.get('position', 0)
     property_name = card.get('property_name')
-    old_position = player.position
+    old_position = game_player.position
 
     result = {
       'amount': 0,
@@ -78,26 +79,27 @@ class AdvanceToPropertyStrategy(CardStrategy):
     # Moving forward past GO pays $200; moving to a lower position means the
     # board wrapped around.
     if target_position < old_position:
-      bank.transfer(None, player, 200)
+      bank.transfer(None, game_player, 200)
       result['amount'] = 200
       result['message'] = f"Moved to {property_name} and collected $200 for passing GO"
 
-    player.position = target_position
-    player.save(update_fields=['position'])
+    game_player.position = target_position
+    game_player.save(update_fields=['position'])
 
     property = Property.objects.select_related('square', 'owner').get(
       square__position=target_position, game=game
     )
 
-    if property.owner and property.owner.id != player.id:
+    if property.owner and property.owner.id != game_player.player.id:
       rent = RentCalculator.calculate_rent(game, property)
-      bankruptcy_result = bankruptcy.settle_debt(player, property.owner, rent)
+      owner_game_player = resolve_game_player(game, property.owner)
+      bankruptcy_result = bankruptcy.settle_debt(game_player, owner_game_player, rent)
 
       if bankruptcy_result['is_bankrupt']:
         result['message'] += f"Went bankrupt paying ${rent} (paid ${bankruptcy_result['paid_amount']})"
         result['is_bankrupt'] = True
         return result
-      
+
       result['amount'] = bankruptcy_result['paid_amount']
       result['message'] += f" - Paid ${bankruptcy_result['paid_amount']} rent to {property.owner.user.username}"
     elif not property.owner:
@@ -110,21 +112,21 @@ class AdvanceToPropertyStrategy(CardStrategy):
 
 
 class MoveBackStrategy(CardStrategy):
-  def execute(self, player: Player, square: Square, game: Game, card: dict):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
     spaces = card.get('spaces', 0)
-    player.position = (player.position - spaces) % 40
+    game_player.position = (game_player.position - spaces) % 40
     # TODO: Add rent, tax, go to jail
-    player.save()
+    game_player.save()
     return {
       'amount': 0,
       'message': f"Moved back {spaces} spaces",
-      'new_position': player.position,
+      'new_position': game_player.position,
     }
 
 
 class GoToJailStrategy(CardStrategy):
-  def execute(self, player: Player, square: Square, game: Game, card: dict):
-    jail.send_to_jail(player)
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
+    jail.send_to_jail(game_player)
     return {
       'amount': 0,
       'message': "Go to Jail!",
@@ -133,9 +135,9 @@ class GoToJailStrategy(CardStrategy):
 
 
 class GetOutOfJailStrategy(CardStrategy):
-  def execute(self, player: Player, square: Square, game: Game, card: dict):
-    player.get_out_of_jail_cards += 1
-    player.save(update_fields=['get_out_of_jail_cards'])
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
+    game_player.get_out_of_jail_cards += 1
+    game_player.save(update_fields=['get_out_of_jail_cards'])
     return {
       'amount': 0,
       'message': "Get Out of Jail Free - keep this card until you need it",
@@ -145,11 +147,11 @@ class GetOutOfJailStrategy(CardStrategy):
 class RepairsStrategy(CardStrategy):
   """Charge per house and per hotel across everything the player owns."""
 
-  def execute(self, player: Player, square: Square, game: Game, card: dict):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
     house_cost = card.get('house_cost', 0)
     hotel_cost = card.get('hotel_cost', 0)
 
-    owned = Property.objects.filter(owner=player, game=game)
+    owned = Property.objects.filter(owner=game_player.player, game=game)
     houses = sum(p.houses for p in owned if p.houses < 5)
     hotels = sum(1 for p in owned if p.houses >= 5)
 
@@ -159,7 +161,7 @@ class RepairsStrategy(CardStrategy):
       return {'amount': 0, 'message': "No buildings to repair"}
 
     # Bankruptcy impact
-    result = bankruptcy.settle_debt(player, None, total_cost)
+    result = bankruptcy.settle_debt(game_player, None, total_cost)
 
     if result['is_bankrupt']:
       return {
@@ -175,48 +177,48 @@ class RepairsStrategy(CardStrategy):
 
 
 class PayEachPlayerStrategy(CardStrategy):
-  def execute(self, player: Player, square: Square, game: Game, card: dict):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
     # Bankruptcy impact
     amount = card.get('amount', 0)
     total_paid = 0
-    other_players = [p for p in game.players.all() if p.id != player.id]
+    other_players = list(
+      game.game_players.exclude(id=game_player.id).select_related('player__user')
+    )
     total_amount = amount * len(other_players)
 
-    is_bankrupt = not bankruptcy.has_sufficient_amount(player, total_amount)
-    per_player_amount = (player.money // len(other_players)) if is_bankrupt else amount
+    is_bankrupt = not bankruptcy.has_sufficient_amount(game_player, total_amount)
+    per_player_amount = (game_player.money // len(other_players)) if is_bankrupt else amount
 
     for p in other_players:
-      bank.transfer(player, p, per_player_amount)
+      bank.transfer(game_player, p, per_player_amount)
       total_paid += per_player_amount
 
     if is_bankrupt:
-      bankruptcy.mark_bankrupt(player)
+      bankruptcy.mark_bankrupt(game_player)
       return {
         'amount': total_paid,
         'is_bankrupt': True,
         'message': f"Went bankrupt paying ${total_amount} to other players (paid ${total_paid})",
-        'paid_to': [p.user.username for p in other_players]
+        'paid_to': [p.player.user.username for p in other_players]
       }
-    
+
     return {
       'amount': total_paid,
       'message': f"Paid ${total_paid} total to other players",
-      'paid_to': [p.user.username for p in other_players]
+      'paid_to': [p.player.user.username for p in other_players]
     }
 
 
 class CollectFromAllStrategy(CardStrategy):
-  def execute(self, player: Player, square: Square, game: Game, card: dict):
+  def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
     amount = card.get('amount', 0)
     total_collected = 0
-    for p in game.players.all():
-      if p.id == player.id:
-        continue
+    for p in game.game_players.exclude(id=game_player.id):
       payable = min(amount, p.money)
       bank.transfer(p, None, payable)
       total_collected += payable
 
-    bank.transfer(None, player, total_collected)
+    bank.transfer(None, game_player, total_collected)
     return {
       'amount': total_collected,
       'message': f"Collected ${total_collected} from other players"

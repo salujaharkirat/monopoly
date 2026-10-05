@@ -1,40 +1,29 @@
 """
 Turn order for a Game's players.
 
-`Game.players` is a plain ManyToManyField with no `through` model, so Django
-gives no ordering guarantee over `.all()`
+`GamePlayer` is the explicit `through` model for `Game.players`, so each row
+*is* one seat in join order - no separate join table to reach into, and no
+re-fetching `Player` rows by id the way a plain, implicit M2M would require.
 """
 
-from game.models import Game, Player
-
-
-def _ordered_membership_rows(game):
-  """
-  Rows of the M2M join table for `game`, in join order.
-
-  Ordered by the join table's own auto-increment id - not `Player.id` (that
-  reflects account creation, not when this player joined this game) and not
-  `Player.created_at` for the same reason.
-  """
-  return Game.players.through.objects.filter(game=game).order_by('id')
+from game.models import GamePlayer
 
 
 def get_ordered_players(game):
   """
-  Players in `game`, in the order they joined - active and bankrupt alike.
+  `GamePlayer` rows for `game`, in the order those players joined - active
+  and bankrupt alike.
 
-  Deterministic, unlike `game.players.all()`
+  Ordered by the row's own auto-increment id - not `Player.id` (that
+  reflects account creation, not when this player joined this game) and not
+  `Player.created_at` for the same reason.
   """
-  rows = list(_ordered_membership_rows(game))
-  players_by_id = {
-    p.id: p for p in Player.objects.filter(id__in=[row.player_id for row in rows])
-  }
-  return [players_by_id[row.player_id] for row in rows if row.player_id in players_by_id]
+  return list(GamePlayer.objects.filter(game=game).order_by('id'))
 
 
 def get_current_player(game):
   """
-  The player whose turn it is, resolved by position in join order.
+  The `GamePlayer` whose turn it is, resolved by position in join order.
   """
   players = get_ordered_players(game)
   if not players:
@@ -77,35 +66,35 @@ def advance_turn(game):
   return players[index]
 
 
-def remove_player(game, player):
+def remove_player(game, game_player):
   """
-  Remove `player` from the game's turn rotation for good (leaving the game,
-  as opposed to going bankrupt - which keeps the seat but flips `is_active`).
+  Remove `game_player`'s seat from the game's turn rotation for good
+  (leaving the game, as opposed to going bankrupt - which keeps the seat but
+  flips `is_active`).
 
-  Removing a seat from the join table shortens `get_ordered_players`, which
-  would otherwise reindex everyone after it. To keep whose-turn-it-is
-  stable across that: if `player` wasn't the current player, the same
-  current player is re-pointed at their new index in the shorter list; if
-  `player` WAS the current player, the next active player (excluding the
-  one leaving) takes over instead.
+  Removing a seat shortens `get_ordered_players`, which would otherwise
+  reindex everyone after it. To keep whose-turn-it-is stable across that:
+  if `game_player` wasn't current, the same current player is re-pointed at
+  their new index in the shorter list; if `game_player` WAS current, the
+  next active player (excluding the one leaving) takes over instead.
 
-  Returns the player now current, or `None` if nobody is left.
+  Returns the `GamePlayer` now current, or `None` if nobody is left.
   """
   players = get_ordered_players(game)
   if not players:
-    game.players.remove(player)
+    game_player.delete()
     return None
 
   current_index = game.current_player_index % len(players)
   current = players[current_index]
 
-  if current.id == player.id:
-    next_index = _next_active_index(players, current_index, exclude_id=player.id)
+  if current.id == game_player.id:
+    next_index = _next_active_index(players, current_index, exclude_id=game_player.id)
     target = players[next_index] if next_index is not None else None
   else:
     target = current
 
-  game.players.remove(player)
+  game_player.delete()
 
   if target is None:
     game.current_player_index = 0

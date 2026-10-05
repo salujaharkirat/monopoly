@@ -1,8 +1,8 @@
 from game import bank
-from game.models import Player
+from game.models import GamePlayer
 
 
-def settle_debt(from_player: Player, to_player=None, amount = 0):
+def settle_debt(from_player: GamePlayer, to_player=None, amount = 0):
   if not from_player:
     return {
       'is_bankrupt': False,

@@ -20,12 +20,4 @@ def create_player_for_new_user(sender, instance, created, **kwargs):
   if not created:
     return
 
-  Player.objects.get_or_create(
-    user=instance,
-    defaults={
-      'money': 2000,
-      'position': 0,
-      'is_in_jail': False,
-      'is_active': True,
-    }
-  )
+  Player.objects.get_or_create(user=instance)

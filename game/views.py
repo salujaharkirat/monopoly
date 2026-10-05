@@ -53,13 +53,7 @@ def register_view(request):
             )
             
             # Create player profile
-            Player.objects.create(
-                user=user,
-                money=2000,
-                position=0,
-                is_in_jail=False,
-                is_active=True
-            )
+            Player.objects.create(user=user)
             
             # Log the user in
             login(request, user)
@@ -105,11 +99,7 @@ class CreateGameView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request):
-        player, created = Player.objects.get_or_create(
-            user=request.user,
-            defaults={'money': 2000}
-        )
-        
+        player, created = Player.objects.get_or_create(user=request.user)
         if player.games.filter(
             state__in=[Game.GameState.WAITING, Game.GameState.PLAYING]
         ).exists():
@@ -141,10 +131,7 @@ class JoinGameView(APIView):
     
     def post(self, request, game_id):
         try:
-            player, created = Player.objects.get_or_create(
-                user=request.user,
-                defaults={'money': 2000}
-            )
+            player, created = Player.objects.get_or_create(user=request.user)
             game = Game.objects.get(id=game_id)
         except Game.DoesNotExist:
             return Response(

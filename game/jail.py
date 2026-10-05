@@ -1,9 +1,9 @@
-from game.models import Player
+from game.models import GamePlayer
 
 JAIL_POSITION = 10
 
 
-def send_to_jail(player: Player):
+def send_to_jail(player: GamePlayer):
   """
   Send `player` to jail - landing on Go To Jail, drawing the matching card,
   or rolling doubles three times in a row.

@@ -7,22 +7,15 @@ from game.enums import SquareType
 class Player(models.Model):
   id: int
   user = models.OneToOneField(
-      User, 
+      User,
       on_delete=models.PROTECT,
       related_name='monopoly_player'
   )
-  money = models.IntegerField(default=2000)
-  position = models.IntegerField(default=0)
-  is_in_jail = models.BooleanField(default=False)
-  get_out_of_jail_cards = models.IntegerField(default=0)
-  doubles_count = models.IntegerField(default=0)
-  has_rolled = models.BooleanField(default=False)
-  is_active = models.BooleanField(default=True)
   created_at = models.DateTimeField(auto_now_add=True)
   updated_at = models.DateTimeField(auto_now=True)
 
 class Game(models.Model):
-  id: int 
+  id: int
   class GameState(models.TextChoices):
     WAITING = 'WT', 'Waiting for Players'
     PLAYING = 'PL', 'Playing'
@@ -32,6 +25,7 @@ class Game(models.Model):
   name = models.CharField(max_length=100, default="Monopoly Game")
   players = models.ManyToManyField(
     Player,
+    through='GamePlayer',
     related_name="games",
     verbose_name="list of players"
   )
@@ -60,36 +54,43 @@ class Game(models.Model):
         return False, "Game is full"
     if self.players.filter(id=player.id).exists():
         return False, "Already in this game"
-    if not player.is_active:
-        return False, "Player is inactive"
     return True, "Can join"
-  
-  def can_start(self, player):
+
+  def can_start(self):
     if self.state != self.GameState.WAITING:
         return False, "Game already started or finished"
-    
-    if not player.is_active:
-       return False, "Player not active"
 
     if self.players.count() < self.min_players:
        return False, f"Need {self.min_players} players to start game"
-    
+
     return True, "Can start"
-  
-  def start_game(self):    
+
+  def start_game(self):
     self.state = self.GameState.PLAYING
     self.current_player_index = 0
     self.turn_number = 0
-
-    for player in self.players.all():
-        player.money = 2000
-        player.position = 0
-        player.is_in_jail = False
-        player.save()
-    
     self.save()
 
     return self
+
+class GamePlayer(models.Model):
+  game = models.ForeignKey(Game, on_delete=models.CASCADE, related_name='game_players')
+  player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='game_players')
+  money = models.IntegerField(default=2000)
+  position = models.IntegerField(default=0)
+  is_in_jail = models.BooleanField(default=False)
+  get_out_of_jail_cards = models.IntegerField(default=0)
+  doubles_count = models.IntegerField(default=0)
+  has_rolled = models.BooleanField(default=False)
+  is_active = models.BooleanField(default=True)
+  joined_at = models.DateTimeField(auto_now_add=True)
+
+  class Meta:
+    unique_together = ('game', 'player')
+    ordering = ['id']
+
+  def __str__(self):
+    return f"{self.player.user.username} in {self.game.name}"
 
 class ColorGroup(models.Model):
    name = models.CharField(max_length=50)

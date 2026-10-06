@@ -4,7 +4,7 @@ import random
 
 from django.db import transaction
 
-from game import bank, turn_order, bankruptcy, jail
+from game import bank, turn_order, bankruptcy, jail, preconditions
 from game.game_over import check_game_over
 from game.game_player import resolve as resolve_game_player
 from game.enums import SquareType
@@ -19,11 +19,7 @@ from .exceptions import (
   InvalidGameState,
   NoJailCardsAvailable,
   NotAuthorized,
-  NotInJail,
   NotPropertyOwner,
-  NotYourTurn,
-  PlayerBankrupt,
-  PlayerInJail,
   PlayerNotFound,
   PropertyAlreadyOwned,
   PropertyNotFound,
@@ -154,24 +150,11 @@ class GameService:
     player = _get_player(player_id)
     game_player = resolve_game_player(game, player)
 
-    if game.state != Game.GameState.PLAYING:
-      raise InvalidGameState('Game is not in playing state')
-
-    current_player = turn_order.get_current_player(game)
-    if not current_player:
-      raise PlayerNotFound('Player not found')
-
-    if current_player.id != game_player.id:
-      raise NotYourTurn('Not your turn')
-
-    if game_player.is_in_jail:
-      raise PlayerInJail('Player is in jail. Pay $50 or use get out of jail card')
-
-    if not game_player.is_active:
-      raise PlayerBankrupt('Player is bankrupt')
-
-    if game_player.has_rolled:
-      raise InvalidAction('Already rolled this turn - end your turn before rolling again')
+    preconditions.require_playing(game)
+    preconditions.require_current_player(game, game_player)
+    preconditions.require_not_in_jail(game_player)
+    preconditions.require_active(game_player)
+    preconditions.require_not_rolled(game_player)
 
     dice1 = random.randint(1, 6)
     dice2 = random.randint(1, 6)
@@ -272,15 +255,9 @@ class GameService:
     player = _get_player(player_id)
     game_player = resolve_game_player(game, player)
 
-    if game.state != Game.GameState.PLAYING:
-      raise InvalidGameState('Game is not in playing state')
-
-    current_player = turn_order.get_current_player(game)
-    if current_player is None or current_player.id != game_player.id:
-      raise NotYourTurn('Not your turn')
-
-    if not game_player.is_in_jail:
-      raise NotInJail('Player is not in jail')
+    preconditions.require_playing(game)
+    preconditions.require_current_player(game, game_player)
+    preconditions.require_in_jail(game_player)
 
     result = bankruptcy.settle_debt(game_player, None, 50)
 
@@ -314,18 +291,10 @@ class GameService:
     player = _get_player(player_id)
     game_player = resolve_game_player(game, player)
 
-    if game.state != Game.GameState.PLAYING:
-      raise InvalidGameState('Game is not in playing state')
-
-    current_player = turn_order.get_current_player(game)
-    if current_player is None or current_player.id != game_player.id:
-      raise NotYourTurn('Not your turn')
-
-    if not game_player.is_active:
-      raise PlayerBankrupt('Player is bankrupt')
-
-    if not game_player.is_in_jail:
-      raise NotInJail('Player is not in jail')
+    preconditions.require_playing(game)
+    preconditions.require_current_player(game, game_player)
+    preconditions.require_active(game_player)
+    preconditions.require_in_jail(game_player)
 
     if game_player.get_out_of_jail_cards < 1:
       raise NoJailCardsAvailable('No Get Out of Jail Free cards held')
@@ -366,8 +335,9 @@ class GameService:
     player = _get_player(player_id)
     game_player = resolve_game_player(game, player)
 
-    if game.state != Game.GameState.PLAYING:
-      raise InvalidGameState('Game is not in playing state')
+    preconditions.require_playing(game)
+    preconditions.require_current_player(game, game_player)
+    preconditions.require_active(game_player)
 
     try:
       property_obj = Property.objects.select_related('square', 'owner').get(id=property_id, game=game)
@@ -392,21 +362,11 @@ class GameService:
     if price is None:
       raise PropertyNotPurchasable(f'{property_obj.square.name} does not have a valid price')
 
-    if not game_player.is_active:
-      raise PlayerBankrupt('Player is bankrupt')
-
     if game_player.money < price:
       # TODO: Add auctioning later
       raise InsufficientFunds(
         f'Not enough money! Need ${price}, have ${game_player.money}'
       )
-
-    current_player = turn_order.get_current_player(game)
-    if current_player is None:
-      raise PlayerNotFound('No current player found')
-
-    if current_player.id != game_player.id:
-      raise NotYourTurn('Not your turn')
 
     # Check if player is on this property
     if game_player.position != property_obj.square.position:
@@ -432,26 +392,12 @@ class GameService:
   @transaction.atomic
   def end_turn(game_id, player_id):
     """End current turn"""
-    try:
-      game = Game.objects.select_related('created_by').prefetch_related('players').get(id=game_id)
-    except Game.DoesNotExist:
-      raise GameNotFound('Game not found')
-
+    game = _get_game(game_id)
     player = _get_player(player_id)
     game_player = resolve_game_player(game, player)
 
-    if game.state != Game.GameState.PLAYING:
-      raise InvalidGameState('Game is not in playing state')
-
-    if game.players.count() == 0:
-      raise InvalidGameState('Game has no players')
-
-    current_player = turn_order.get_current_player(game)
-    if current_player is None:
-      raise PlayerNotFound('No current player found')
-
-    if current_player.id != game_player.id:
-      raise NotYourTurn('Not your turn')
+    preconditions.require_playing(game)
+    preconditions.require_current_player(game, game_player)
 
     game_player.has_rolled = False
     game_player.save(update_fields=['has_rolled'])
@@ -467,12 +413,13 @@ class GameService:
   @service_result
   @transaction.atomic
   def sell_house(game_id, player_id, property_id, number_of_houses):
-    player = _get_player(player_id)
     game = _get_game(game_id)
+    player = _get_player(player_id)
     game_player = resolve_game_player(game, player)
 
-    if not game_player.is_active:
-      raise PlayerBankrupt('Player is bankrupt')
+    preconditions.require_playing(game)
+    preconditions.require_current_player(game, game_player)
+    preconditions.require_active(game_player)
 
     try:
       property = Property.objects.select_related('square', 'owner', 'square__color_group').get(id=property_id, game=game)
@@ -555,12 +502,13 @@ class GameService:
   @service_result
   @transaction.atomic
   def build_house(game_id, player_id, property_id, number_of_houses):
-    player = _get_player(player_id)
     game = _get_game(game_id)
+    player = _get_player(player_id)
     game_player = resolve_game_player(game, player)
 
-    if not game_player.is_active:
-      raise PlayerBankrupt('Player is bankrupt')
+    preconditions.require_playing(game)
+    preconditions.require_current_player(game, game_player)
+    preconditions.require_active(game_player)
 
     try:
       property = Property.objects.select_related('square', 'owner', 'square__color_group').get(id=property_id, game=game)
@@ -726,8 +674,7 @@ class GameService:
     player = _get_player(player_id)
     game_player = resolve_game_player(game, player)
 
-    if not game_player.is_active:
-      raise PlayerBankrupt('Player is bankrupt')
+    preconditions.require_active(game_player)
 
     if game.state == Game.GameState.FINISHED:
       raise InvalidGameState('Game is already finished')
@@ -742,7 +689,7 @@ class GameService:
 
     turn_order.remove_player(game, game_player)
     if game.created_by.id == player_id and game.players.exists():
-      new_game_player = game.players.filter(is_active=True).first()
+      new_game_player = game.game_players.filter(is_active=True).first()
       if new_game_player:
         game.created_by = new_game_player.player
         game.save()

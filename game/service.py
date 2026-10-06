@@ -4,9 +4,10 @@ import random
 
 from django.db import transaction
 
-from game import bank, turn_order, bankruptcy, jail, preconditions
+from game import turn_order, bankruptcy, jail, preconditions
 from game.game_over import check_game_over
 from game.game_player import resolve as resolve_game_player
+from game.property_queries import owns_entire_group, other_house_counts
 from game.enums import SquareType
 from game.strategies.square_strategy import SquareStrategyFactory
 
@@ -26,7 +27,7 @@ from .exceptions import (
   PropertyNotPurchasable,
   SquareNotFound,
 )
-from .models import Game, Player, GamePlayer, Square, Property
+from .models import Game, Player, Square, Property
 from .serializer import GameDetailSerializer
 
 logger = logging.getLogger(__name__)
@@ -443,17 +444,7 @@ class GameService:
         f"{property.square.name} has no color group configured, so build rules cannot be checked"
       )
 
-    owned_in_group = Property.objects.filter(
-        owner=player,
-        square__color_group=color_group,
-        game=game
-    ).count()
-    total_in_group = Property.objects.filter(
-        square__color_group=color_group,
-        game=game
-    ).count()
-
-    if total_in_group != owned_in_group:
+    if not owns_entire_group(player, color_group, game):
       raise BuildRuleViolation(
         f"Must own all {color_group.name} properties to sell houses on {property.square.name}"
       )
@@ -533,17 +524,7 @@ class GameService:
         f"{property.square.name} has no color group configured, so build rules cannot be checked"
       )
 
-    owned_in_group = Property.objects.filter(
-        owner=player,
-        square__color_group=color_group,
-        game=game
-    ).count()
-    total_in_group = Property.objects.filter(
-        square__color_group=color_group,
-        game=game
-    ).count()
-
-    if total_in_group != owned_in_group:
+    if not owns_entire_group(player, color_group, game):
       raise BuildRuleViolation(
         f"Must own all {color_group.name} properties to build on {property.square.name}"
       )
@@ -603,12 +584,7 @@ class GameService:
     if color_group is None:
       return False, 'Property has no color group configured'
 
-    others = list(
-      Property.objects.filter(
-        square__color_group=color_group,
-        game=game,
-      ).exclude(id=property.id).values_list('houses', flat=True)
-    )
+    others = other_house_counts(property, color_group, game)
 
     if not others:
       # A single-property group has nothing to stay even with.
@@ -639,12 +615,7 @@ class GameService:
     if color_group is None:
       return False, 'Property has no color group configured'
 
-    others = list(
-      Property.objects.filter(
-        square__color_group=color_group,
-        game=game,
-      ).exclude(id=property.id).values_list('houses', flat=True)
-    )
+    others = other_house_counts(property, color_group, game)
 
     if not others:
       # A single-property group has nothing to stay even with.

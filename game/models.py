@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.core.exceptions import ValidationError
 from game.enums import SquareType
 
 class Player(models.Model):
@@ -128,8 +127,3 @@ class Property(models.Model):
     self.owner = player
     self.save()
     return self
-
-  def is_hotel(self):
-    if self.houses >= 4:
-      return True
-    return False

@@ -1,12 +1,17 @@
+import logging
+
 from game.models import Player, Game
 from channels.db import database_sync_to_async
 from game.serializer import GameDetailSerializer
 from rest_framework.authtoken.models import Token
+
+logger = logging.getLogger(__name__)
+
+
 class DbUtils:
   @staticmethod
   @database_sync_to_async
   def get_token(key):
-      print("inside", key)
       try:
         return Token.objects.get(key=key)
       except Token.DoesNotExist:
@@ -18,22 +23,20 @@ class DbUtils:
       """Get user from token - handles all cases"""
       try:
           token = Token.objects.select_related('user').get(key=key)
-          
+
           user = getattr(token, 'user', None)
-          
+
           if not user:
-              print("Token has no user")
+              logger.warning("Token has no user")
               return None
-              
+
           return user
-          
+
       except Token.DoesNotExist:
-          print(f"Token not found: {key[:20]}...")
+          logger.warning(f"Token not found: {key[:20]}...")
           return None
-      except Exception as e:
-          print(f"Error getting user: {type(e).__name__}: {e}")
-          import traceback
-          traceback.print_exc()
+      except Exception:
+          logger.exception("Error getting user from token")
           return None
 
   @staticmethod

@@ -14,7 +14,17 @@ class CardStrategy(ABC):
   Every strategy returns at least ``{'amount': int, 'message': str}``. The
   card's own `name`/`description` are merged in by the caller
   (`CardSquareStrategy`), so no strategy has to remember to echo them back.
+
+  `bank_module`/`bankruptcy_module` are injected (defaulting to the real
+  `bank`/`bankruptcy` modules) so a subclass that moves money can be
+  unit-tested against a fake ledger - asserting on the message/branching a
+  bankruptcy outcome produces - without needing to actually drain a
+  `GamePlayer`'s money to exactly zero to exercise that branch.
   """
+
+  def __init__(self, bank_module=bank, bankruptcy_module=bankruptcy):
+    self._bank = bank_module
+    self._bankruptcy = bankruptcy_module
 
   @abstractmethod
   def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
@@ -24,7 +34,7 @@ class CardStrategy(ABC):
 class CollectMoneyStrategy(CardStrategy):
   def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
     amount = card.get('amount', 0)
-    bank.transfer(None, game_player, amount)
+    self._bank.transfer(None, game_player, amount)
     return {
       'amount': amount,
       'message': f"Collected ${amount}"
@@ -34,7 +44,7 @@ class CollectMoneyStrategy(CardStrategy):
 class PayMoneyStrategy(CardStrategy):
   def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
     amount = card.get('amount', 0)
-    result = bankruptcy.settle_debt(game_player, None, amount)
+    result = self._bankruptcy.settle_debt(game_player, None, amount)
 
     if result['is_bankrupt']:
       return {
@@ -53,7 +63,7 @@ class AdvanceToGoStrategy(CardStrategy):
   def execute(self, game_player: GamePlayer, square: Square, game: Game, card: dict):
     game_player.position = 0
     game_player.save(update_fields=['position'])
-    bank.transfer(None, game_player, 200)
+    self._bank.transfer(None, game_player, 200)
     return {
       'amount': 200,
       'message': "Advanced to GO and collected $200"
@@ -79,7 +89,7 @@ class AdvanceToPropertyStrategy(CardStrategy):
     # Moving forward past GO pays $200; moving to a lower position means the
     # board wrapped around.
     if target_position < old_position:
-      bank.transfer(None, game_player, 200)
+      self._bank.transfer(None, game_player, 200)
       result['amount'] = 200
       result['message'] = f"Moved to {property_name} and collected $200 for passing GO"
 
@@ -93,7 +103,7 @@ class AdvanceToPropertyStrategy(CardStrategy):
     if property.owner and property.owner.id != game_player.player.id:
       rent = RentCalculator.calculate_rent(game, property)
       owner_game_player = resolve_game_player(game, property.owner)
-      bankruptcy_result = bankruptcy.settle_debt(game_player, owner_game_player, rent)
+      bankruptcy_result = self._bankruptcy.settle_debt(game_player, owner_game_player, rent)
 
       if bankruptcy_result['is_bankrupt']:
         result['message'] += f"Went bankrupt paying ${rent} (paid ${bankruptcy_result['paid_amount']})"
@@ -161,7 +171,7 @@ class RepairsStrategy(CardStrategy):
       return {'amount': 0, 'message': "No buildings to repair"}
 
     # Bankruptcy impact
-    result = bankruptcy.settle_debt(game_player, None, total_cost)
+    result = self._bankruptcy.settle_debt(game_player, None, total_cost)
 
     if result['is_bankrupt']:
       return {
@@ -186,15 +196,15 @@ class PayEachPlayerStrategy(CardStrategy):
     )
     total_amount = amount * len(other_players)
 
-    is_bankrupt = not bankruptcy.has_sufficient_amount(game_player, total_amount)
+    is_bankrupt = not self._bankruptcy.has_sufficient_amount(game_player, total_amount)
     per_player_amount = (game_player.money // len(other_players)) if is_bankrupt else amount
 
     for p in other_players:
-      bank.transfer(game_player, p, per_player_amount)
+      self._bank.transfer(game_player, p, per_player_amount)
       total_paid += per_player_amount
 
     if is_bankrupt:
-      bankruptcy.mark_bankrupt(game_player)
+      self._bankruptcy.mark_bankrupt(game_player)
       return {
         'amount': total_paid,
         'is_bankrupt': True,
@@ -215,10 +225,10 @@ class CollectFromAllStrategy(CardStrategy):
     total_collected = 0
     for p in game.game_players.exclude(id=game_player.id):
       payable = min(amount, p.money)
-      bank.transfer(p, None, payable)
+      self._bank.transfer(p, None, payable)
       total_collected += payable
 
-    bank.transfer(None, game_player, total_collected)
+    self._bank.transfer(None, game_player, total_collected)
     return {
       'amount': total_collected,
       'message': f"Collected ${total_collected} from other players"

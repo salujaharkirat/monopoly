@@ -2,14 +2,11 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import login
 from django.contrib import messages
-from django.db.models import QuerySet
 
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.views import APIView
-from django.contrib.auth import authenticate, login, logout
-from rest_framework.authtoken.models import Token
 from django.contrib.auth.models import User
 from .models import Game, Player
 from .serializer import (

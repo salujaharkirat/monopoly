@@ -17,7 +17,17 @@ class SquareStrategy(ABC):
 
   `dice_roll` is the total the player just rolled. Utility rent is a multiple
   of it, so it has to travel all the way down from `roll_dice`.
+
+  `bank_module`/`bankruptcy_module` are injected (defaulting to the real
+  `bank`/`bankruptcy` modules) so a subclass that moves money can be
+  unit-tested against a fake ledger - asserting on the message/branching a
+  bankruptcy outcome produces - without needing to actually drain a
+  `GamePlayer`'s money to exactly zero to exercise that branch.
   """
+
+  def __init__(self, bank_module=bank, bankruptcy_module=bankruptcy):
+    self._bank = bank_module
+    self._bankruptcy = bankruptcy_module
 
   @abstractmethod
   def execute(self, game_player: GamePlayer, square: Square, game: Game, dice_roll: int = 0):
@@ -70,7 +80,7 @@ class PropertySquareStrategy(SquareStrategy):
     rent = RentCalculator.calculate_rent(game, property, dice_roll)
     owner_game_player = resolve_game_player(game, property.owner)
 
-    result = bankruptcy.settle_debt(game_player, owner_game_player, rent)
+    result = self._bankruptcy.settle_debt(game_player, owner_game_player, rent)
 
     if result['is_bankrupt']:
       return {
@@ -88,7 +98,7 @@ class TaxSquareStrategy(SquareStrategy):
   def execute(self, game_player: GamePlayer, square: Square, game: Game, dice_roll: int = 0):
     # Bankruptcy impact
     tax_amount = square.tax_amount or 100
-    result = bankruptcy.settle_debt(game_player, None, tax_amount)
+    result = self._bankruptcy.settle_debt(game_player, None, tax_amount)
 
     if result['is_bankrupt']:
       return {

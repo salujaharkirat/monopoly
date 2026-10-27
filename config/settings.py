@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-^a-%^f%x+d*!*u*h(@$j5bk7(#j00=-y64c4b5u42j7b(ewt1i
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -37,7 +37,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',  # Generates DB-backed database tokens
     'channels',
@@ -46,16 +45,7 @@ INSTALLED_APPS = [
 ]
 
 ASGI_APPLICATION = 'config.asgi.application'
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3001",  # React development server
-    "http://127.0.0.1:3001",
-    "http://localhost:8000",
-]
 
-CORS_ALLOW_CREDENTIALS = True
-
-# if DEBUG:
-#   CORS_ALLOW_ALL_ORIGINS = True
 # Redis Channel Layer (Production)
 # CHANNEL_LAYERS = {
 #     'default': {
@@ -86,7 +76,6 @@ REST_FRAMEWORK = {
 REST_AUTH_TOKEN_MODEL = 'rest_framework.authtoken.models.Token'
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -96,9 +85,6 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'config.urls'
-LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/login/'
 
 TEMPLATES = [
     {
@@ -123,8 +109,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        "NAME": "monopoly_db",
+        "USER": "",
+        "PASSWORD": "",
+        "HOST": "127.0.0.1",
+        "PORT": "3306",
     }
 }
 

@@ -1,13 +1,8 @@
 
-from django.shortcuts import render, redirect
-from django.contrib.auth import login
-from django.contrib import messages
-
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.views import APIView
-from django.contrib.auth.models import User
 from .models import Game, Player
 from .serializer import (
     GameSerializer,
@@ -17,51 +12,6 @@ from .serializer import (
 from .service import GameService
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-
-def register_view(request):
-    """User registration view"""
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        email = request.POST.get('email')
-        password1 = request.POST.get('password1')
-        password2 = request.POST.get('password2')
-        
-        # Validate passwords match
-        if password1 != password2:
-            messages.error(request, 'Passwords do not match')
-            return render(request, 'registration/register.html')
-        
-        # Check if username exists
-        if User.objects.filter(username=username).exists():
-            messages.error(request, 'Username already exists')
-            return render(request, 'registration/register.html')
-        
-        # Check if email exists
-        if User.objects.filter(email=email).exists():
-            messages.error(request, 'Email already registered')
-            return render(request, 'registration/register.html')
-        
-        # Create user
-        try:
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                password=password1
-            )
-            
-            # Create player profile
-            Player.objects.create(user=user)
-            
-            # Log the user in
-            login(request, user)
-            messages.success(request, 'Account created successfully!')
-            return redirect('game-lobby')
-            
-        except Exception as e:
-            messages.error(request, f'Error creating account: {str(e)}')
-            return render(request, 'registration/register.html')
-    
-    return render(request, 'registration/register.html')
 
 class GameListView(generics.ListAPIView):
     """List all available games"""

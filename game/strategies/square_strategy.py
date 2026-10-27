@@ -155,8 +155,8 @@ class CardSquareStrategy(SquareStrategy):
       'message': message,
       'card_name': card_name,
       'description': description,
-      # The UI's card modal reads the card definition and the outcome from
-      # this single object, so they are merged with the outcome winning.
+      # Clients read the card definition and the outcome from this single
+      # object, so they are merged with the outcome winning.
       'card': {
         **card,
         **outcome,

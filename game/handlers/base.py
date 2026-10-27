@@ -17,7 +17,7 @@ def ws_handler(func):
 
   A `GameError` is a rule violation and is sent to the player as-is. Anything
   else is a bug: it is logged with a full traceback and the player gets a
-  generic message, so internal details never leak into the UI and the failure
+  generic message, so internal details never leak to clients and the failure
   is still visible in the logs.
 
   The socket stays open either way - one bad action should not drop the player

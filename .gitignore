@@ -11,3 +11,5 @@ __pycache__/
 *.pyd
 
 .DS_Store
+
+node_modules/*

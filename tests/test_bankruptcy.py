@@ -14,12 +14,12 @@ class BankruptcyTests(SimpleTestCase):
     me = GamePlayer(id=1, money=100)
     self.assertFalse(has_sufficient_amount(me, 200))
 
-  @patch('game.models.GamePlayer.save')
+  @patch.object(GamePlayer, 'save')
   def test_mark_bankrupt_active_player(self, mock_save):
     me = GamePlayer(id=1)
     self.assertTrue(me.is_active)
     mark_bankrupt(me)
-    self.assertTrue(GamePlayer.save.called)
+    mock_save.assert_called_once()
     self.assertFalse(me.is_active)
 
   @patch('game.bankruptcy.mark_bankrupt')
@@ -49,3 +49,14 @@ class BankruptcyTests(SimpleTestCase):
     res = settle_debt(me, None, 100)
     self.assertTrue(res["is_bankrupt"], True)
     self.assertEqual(res["paid_amount"], 50)
+
+  @patch.object(GamePlayer, 'save')
+  def test_mark_bankrupt(self, mock_save):
+    me = GamePlayer(id=1)
+    mark_bankrupt(me)
+    mock_save.assert_called_once()
+    self.assertFalse(me.is_active)
+    mock_save.reset_mock()
+    mark_bankrupt(me)
+    mock_save.assert_not_called()
+    

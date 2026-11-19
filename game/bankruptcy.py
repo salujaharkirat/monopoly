@@ -3,12 +3,6 @@ from game.models import GamePlayer
 
 
 def settle_debt(from_player: GamePlayer, to_player=None, amount = 0):
-  if not from_player:
-    return {
-      'is_bankrupt': False,
-      'paid_amount': 0
-    }
-  
   if not has_sufficient_amount(from_player, amount):
     amount = min(amount, from_player.money)
     bank.transfer(from_player, to_player, amount)

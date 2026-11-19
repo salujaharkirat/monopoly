@@ -1,0 +1,51 @@
+from django.test import SimpleTestCase
+from unittest.mock import patch
+
+from game.models import GamePlayer
+from game.bankruptcy import has_sufficient_amount, mark_bankrupt, settle_debt
+
+
+class BankruptcyTests(SimpleTestCase):
+  def test_sufficient_amount(self):
+    me = GamePlayer(id=1, money=1500)
+    self.assertTrue(has_sufficient_amount(me, 0))
+
+  def test_not_sufficient_amount(self):
+    me = GamePlayer(id=1, money=100)
+    self.assertFalse(has_sufficient_amount(me, 200))
+
+  @patch('game.models.GamePlayer.save')
+  def test_mark_bankrupt_active_player(self, mock_save):
+    me = GamePlayer(id=1)
+    self.assertTrue(me.is_active)
+    mark_bankrupt(me)
+    self.assertTrue(GamePlayer.save.called)
+    self.assertFalse(me.is_active)
+
+  @patch('game.bankruptcy.mark_bankrupt')
+  @patch('game.bank.transfer')
+  @patch('game.bankruptcy.has_sufficient_amount')
+  def test_amount_less_than_player_money(self, mock_has_sufficient_amount, mock_transfer, mock_mark_bankrupt):
+
+    mock_has_sufficient_amount.return_value = True
+    mock_transfer.return_value = None
+    mock_mark_bankrupt.returnValue = None
+
+    me = GamePlayer(id=1, money=200)
+    res = settle_debt(me, None, 100)
+    self.assertFalse(res["is_bankrupt"])
+    self.assertEqual(res["paid_amount"], 100)
+
+  @patch('game.bankruptcy.mark_bankrupt')
+  @patch('game.bank.transfer')
+  @patch('game.bankruptcy.has_sufficient_amount')
+  def test_amount_more_than_player_money(self, mock_has_sufficient_amount, mock_transfer, mock_mark_bankrupt):
+
+    mock_has_sufficient_amount.return_value = False
+    mock_transfer.return_value = None
+    mock_mark_bankrupt.returnValue = None
+
+    me = GamePlayer(id=1, money=50)
+    res = settle_debt(me, None, 100)
+    self.assertTrue(res["is_bankrupt"], True)
+    self.assertEqual(res["paid_amount"], 50)

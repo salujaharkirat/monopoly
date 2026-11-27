@@ -129,7 +129,7 @@ class GameService:
             'is_in_jail': game_player.is_in_jail,
             'is_active': game_player.is_active
           }
-          for game_player in game.players.all()
+          for game_player in game.game_players.all()
       ],
       'player_count': game.players.count(),
       'max_players': game.max_players,

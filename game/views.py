@@ -33,11 +33,16 @@ class GameDetailView(generics.RetrieveAPIView):
     serializer_class = GameDetailSerializer
 
     def get(self, request, game_id):
-        player = request.user.monopoly_player
-        game = player.games.get(id=game_id)
-
-        serializer = GameSerializer(game)
-        return Response(serializer.data, status=status.HTTP_200_OK) 
+        try:
+            player = request.user.monopoly_player
+            game = player.games.get(id=game_id)
+            serializer = GameSerializer(game)
+            return Response(serializer.data, status=status.HTTP_200_OK) 
+        except Game.DoesNotExist:
+            return Response(
+                {"detail": "No game found for the player"},
+                status=status.HTTP_404_NOT_FOUND
+            )            
 
 
 class CreateGameView(APIView):

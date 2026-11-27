@@ -204,7 +204,7 @@ class PayEachPlayerStrategy(CardStrategy):
       total_paid += per_player_amount
 
     if is_bankrupt:
-      self._bankruptcy.mark_bankrupt(game_player)
+      self._bankruptcy.go_bankrupt(game_player)
       return {
         'amount': total_paid,
         'is_bankrupt': True,

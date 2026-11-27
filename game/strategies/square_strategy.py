@@ -103,12 +103,14 @@ class TaxSquareStrategy(SquareStrategy):
     if result['is_bankrupt']:
       return {
         'message': f"Went bankrupt while paying ${tax_amount} paid ${result['paid_amount']}",
-        'amount': result['paid_amount']
+        'amount': result['paid_amount'],
+        'is_bankrupt': result['is_bankrupt']
       }
 
     return {
       'message': f"Paid ${result['paid_amount']} in taxes",
       'amount': tax_amount,
+      'is_bankrupt': result['is_bankrupt']
     }
 
 
